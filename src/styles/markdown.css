@@ -1,0 +1,289 @@
+.user-message {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.55;
+  font-size: 0.95rem;
+}
+
+.user-message pre {
+  white-space: pre-wrap;
+}
+
+
+
+.markdown {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.55;
+  font-size: 0.95rem;
+}
+
+/* ======================
+   HEADINGS (FULL FIX)
+   ====================== */
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0.8em 0 0.4em;
+}
+
+.markdown h1 {
+  font-size: 1.6rem;
+}
+
+.markdown h2 {
+  font-size: 1.4rem;
+}
+
+.markdown h3 {
+  font-size: 1.2rem;
+}
+
+.markdown h4 {
+  font-size: 1.05rem;
+}
+
+.markdown h5 {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.markdown h6 {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+/* ======================
+   PARAGRAPHS
+   ====================== */
+.markdown p {
+  margin: 0.35em 0;
+}
+
+/* ======================
+   STRONG / EMPHASIS
+   ====================== */
+.markdown strong {
+  font-weight: 600;
+}
+
+.markdown em {
+  font-style: italic;
+}
+
+/* ======================
+   LINKS
+   ====================== */
+.markdown a {
+  color: #3b82f6;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dark .markdown a {
+  color: #60a5fa;
+}
+
+/* ======================
+   LISTS (FIXED GAPS)
+   ====================== */
+.markdown ul,
+.markdown ol {
+  margin: 0.35em 0;
+  padding-left: 1.25em;
+  list-style-position: outside;
+  white-space: normal;
+
+}
+
+.markdown li {
+  margin: 0.5em 0;
+}
+
+.markdown ul {
+  list-style-type: disc;
+}
+
+.markdown ol {
+  list-style-type: decimal;
+}
+
+.markdown li>p {
+  display: inline;
+  margin: 0;
+}
+
+/* Task lists (GFM) */
+.markdown input[type="checkbox"] {
+  margin-right: 0.4em;
+  transform: translateY(1px);
+}
+
+/* ======================
+   BLOCKQUOTE
+   ====================== */
+.markdown blockquote {
+  margin: 0.5em 0;
+  padding-left: 0.75em;
+  border-left: 3px solid rgba(0, 0, 0, 0.2);
+  color: #555;
+  font-style: italic;
+}
+
+.dark .markdown blockquote {
+  border-left-color: rgba(255, 255, 255, 0.25);
+  color: #aaa;
+}
+
+/* ======================
+   HORIZONTAL RULE
+   ====================== */
+.markdown hr {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.2);
+  margin: 0.75em 0;
+}
+
+.dark .markdown hr {
+  border-top-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ======================
+   TABLES (SCROLL SAFE)
+   ====================== */
+.markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 0.5em 0;
+}
+
+.markdown th,
+.markdown td {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 0.4em 0.75em;
+  text-align: left;
+  font-size: 0.9rem;
+  white-space: normal;
+}
+
+.markdown th {
+  background-color: rgba(0, 0, 0, 0.08);
+  font-weight: 600;
+  align-self: center;
+}
+
+.markdown tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.dark .markdown th,
+.dark .markdown td {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.dark .markdown tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* ======================
+   INLINE CODE
+   ====================== */
+.markdown code {
+  background-color: rgba(0, 0, 0, 0.137);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.dark .markdown code {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ======================
+   CODE BLOCKS
+   ====================== */
+.markdown pre {
+  background-color: rgba(0, 0, 0, 0.233);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  margin: 0.5em 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+}
+
+.dark .markdown pre {
+  background-color: rgba(255, 255, 255, 0.233);
+}
+
+/* wrapper */
+.code-block {
+  position: relative;
+}
+
+/* language label */
+.code-lang {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 6px 14px;
+  border-radius: 6px 6px 0 0;
+  background-color: rgba(28, 75, 231, 0.233);
+  display: flex;
+  font-family: Arial, Helvetica, sans-serif;
+  justify-content: space-between;
+}
+
+/* copy button */
+.copy-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+
+.dark .code-lang {
+  color: #ccc;
+}
+
+.code-block pre {
+  background-color: rgba(0, 0, 0, 0);
+  border-radius: 0 0 6px 6px !important;
+  padding: 6px 16px;
+}
+
+.dark .code-block pre {
+  background-color: rgba(0, 0, 0, 0);
+}
+
+/* Prevent inline code styles inside pre */
+.markdown pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ======================
+   IMAGES
+   ====================== */
+.markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.5em 0;
+}
