@@ -15,12 +15,21 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { useNavigate, useParams } from "react-router-dom";
 import ParticleBlob from "../components/ui/ParticleBlob";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 
 type ChatMessage = {
     id: string;
     role: "User" | "Assistant";
     content: string;
     streaming?: boolean;
+};
+
+type ExtraMessage = {
+    id: string;
+    role: "Extra";
+    content: any;
 };
 
 type User = {
@@ -51,6 +60,7 @@ export default function AIInterfaceVoice() {
 
     const [chatList, setChatList] = useState<ChatList[]>([]);
     const [, setMessages] = useState<ChatMessage[]>([]);
+    const [extraMessages, setExtraMessages] = useState<ExtraMessage[]>([]);
     const [conversationId, setConversationId] = useState<string | null>(null);
     const chatListRef = useRef<ChatList[]>([]);
     const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -275,6 +285,17 @@ export default function AIInterfaceVoice() {
                 return;
             }
 
+            if (msg.type === "extra_details") {
+                console.log(msg.content);
+                setExtraMessages(prev => [
+                    ...prev,
+                    {
+                        id: crypto.randomUUID(),
+                        role: "Extra",
+                        content: msg.content,
+                    } as ExtraMessage
+                ]);
+            }
 
             // Streaming token
             if (msg.type === "audio_chunk") {
@@ -579,6 +600,15 @@ export default function AIInterfaceVoice() {
             console.error("Failed to fetch chat list:", err);
         }
     };
+
+    function getTextFromReactNode(children: React.ReactNode): string {
+        if (typeof children === "string") return children;
+        if (Array.isArray(children)) return children.map(getTextFromReactNode).join("");
+        if (typeof children === "object" && children && "props" in children) {
+            return getTextFromReactNode((children as any).props.children);
+        }
+        return "";
+    }
 
     const [blobPos, setBlobPos] = useState({
         x: 50,
@@ -906,14 +936,80 @@ export default function AIInterfaceVoice() {
                         <div className="flex-1 relative overflow-hidden">
                             <div className="h-full m-4 w-full flex items-center justify-center relative">
 
-                                {/* Speaking ring  */}
-                                <ParticleBlob
-                                    x={blobPos.x}
-                                    y={blobPos.y}
-                                    rotation={blobPos.rotation}
-                                    scale={blobPos.scale}
-                                    isSpeaking={isSpeaking}
-                                />
+                                <div className="relative w-full">
+
+                                    {/* Speaking ring  */}
+                                    <ParticleBlob
+                                        x={blobPos.x}
+                                        y={blobPos.y}
+                                        rotation={blobPos.rotation}
+                                        scale={blobPos.scale}
+                                        isSpeaking={isSpeaking}
+                                    />
+                                </div>
+
+                                <div className="w-3/4 h-full overflow-x-auto h-full overflow-y-auto px-12 py-4 space-y-4 m-5 scroll-fade">
+                                    {extraMessages.map((m) => {
+                                        const renderContent = (content: any) => {
+                                            if (typeof content === "string") return content;
+                                            if (typeof content === "object") return Object.entries(content)
+                                                .map(([k, v]) => `**${k}**: ${JSON.stringify(v)}`)
+                                                .join("\n");
+                                            return String(content);
+                                        };
+                                        return (
+
+                                            <div
+                                                key={m.id}
+                                                className={`rounded-xl p-3 dark:text-white markdown`}
+                                            >
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm]}
+                                                    rehypePlugins={[rehypeHighlight]}
+                                                    components={{
+                                                        code({ className, children, ...props }) {
+                                                            const match = /language-(\w+)/.exec(className || "");
+                                                            const language = match?.[1];
+                                                            const isBlock = !!language;
+
+                                                            if (!isBlock) {
+                                                                return <code className="inline-code">{children}</code>;
+                                                            }
+
+                                                            const codeText = getTextFromReactNode(children).replace(/\n$/, "");
+
+                                                            const [copied, setCopied] = useState(false);
+
+                                                            const handleCopy = async () => {
+                                                                await navigator.clipboard.writeText(codeText);
+                                                                setCopied(true);
+                                                                setTimeout(() => setCopied(false), 2000);
+                                                            };
+
+                                                            return (
+                                                                <div className="code-block">
+                                                                    <div className="code-lang">
+                                                                        <span>{language.toUpperCase()}</span>
+                                                                        <button onClick={handleCopy} disabled={copied} className="copy-btn">
+                                                                            {copied ? "Copied ✓" : "Copy"}
+                                                                        </button>
+                                                                    </div>
+                                                                    <pre className={className}>
+                                                                        <code {...props}>{children}</code>
+                                                                    </pre>
+                                                                </div>
+                                                            );
+                                                        },
+                                                    }}
+                                                >
+                                                    {renderContent(m.content)}
+                                                </ReactMarkdown>
+
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+
                             </div>
                         </div>
 

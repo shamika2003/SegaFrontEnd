@@ -573,6 +573,7 @@ export default function AIInterface() {
     }
     return "";
   }
+  
   useEffect(() => {
     // Scroll ONLY when:
     // - user sends a message
