@@ -50,7 +50,7 @@ export default function AIInterfaceVoice() {
     const audioQueueRef = useRef<{ buffer: AudioBuffer }[]>([]);
 
     const [chatList, setChatList] = useState<ChatList[]>([]);
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [, setMessages] = useState<ChatMessage[]>([]);
     const [conversationId, setConversationId] = useState<string | null>(null);
     const chatListRef = useRef<ChatList[]>([]);
     const [accessToken, setAccessToken] = useState<string | null>(null);
