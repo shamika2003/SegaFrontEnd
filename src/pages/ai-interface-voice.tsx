@@ -44,6 +44,8 @@ type ChatList = {
     created_at: string;
 };
 
+const API_BASE = import.meta.env.VITE_API_URL;
+
 export default function AIInterfaceVoice() {
     const { conversationId: routeConversationId } = useParams();
     const navigate = useNavigate();
@@ -411,7 +413,7 @@ export default function AIInterfaceVoice() {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const res = await fetch("http://localhost:8000/api/auth/check", {
+                const res = await fetch(`${API_BASE}/api/auth/check`, {
                     method: "POST",
                     credentials: "include",
                     headers: {
@@ -447,7 +449,7 @@ export default function AIInterfaceVoice() {
 
         const fetchPastChats = async () => {
             try {
-                const res = await fetch("http://localhost:8000/api/conversations_list", {
+                const res = await fetch(`${API_BASE}/api/conversations_list`, {
                     headers: {
                         "Authorization": `Bearer ${accessToken}`,
                     },
@@ -479,7 +481,7 @@ export default function AIInterfaceVoice() {
 
             try {
                 const res = await fetch(
-                    `http://localhost:8000/api/conversations/${routeConversationId}`,
+                    `${API_BASE}/api/conversations/${routeConversationId}`,
                     {
                         method: "GET",
                         headers: {
@@ -534,7 +536,7 @@ export default function AIInterfaceVoice() {
                 body.accessToken = credentials.accessToken;
             }
 
-            const res = await fetch("http://localhost:8000/api/auth/login", {
+            const res = await fetch(`${API_BASE}/api/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
@@ -568,7 +570,7 @@ export default function AIInterfaceVoice() {
 
     const fetchChatList = async (token: string) => {
         try {
-            const res = await fetch("http://localhost:8000/api/conversations_list", {
+            const res = await fetch(`${API_BASE}/api/conversations_list`, {
                 headers: { Authorization: `Bearer ${token}` },
                 credentials: "include",
             });
@@ -635,7 +637,7 @@ export default function AIInterfaceVoice() {
     //sign out
     const signout = async () => {
         try {
-            await fetch("http://localhost:8000/api/auth/logout", {
+            await fetch(`${API_BASE}/api/auth/logout`, {
                 method: "POST",
                 credentials: "include", // IMPORTANT
             });
