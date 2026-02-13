@@ -428,6 +428,7 @@ export default function AIInterfaceVoice() {
                 }
 
                 const data = await res.json();
+                console.log("Auth check response:", data);
 
                 if (data.access_token) {
                     setAccessToken(data.access_token);
