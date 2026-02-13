@@ -444,7 +444,7 @@ export default function AIInterfaceVoice() {
 
         checkAuth();
     }, []);
-
+                console.log("Auth check response:", );
     useEffect(() => {
         if (!authChecked || !accessToken) return;
 
