@@ -20,9 +20,18 @@ export function connectSocket(
 
   currentToken = token;
   onMessageCallback = onMessage;
-  const API_BASE = import.meta.env.VITE_API_URL;
-  const WS_BASE = API_BASE.replace("https", "wss").replace("http", "ws");
+
+  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+  // Convert HTTP(S) → WS(S)
+  const WS_BASE = API_BASE.startsWith("https")
+    ? API_BASE.replace("https", "wss")
+    : API_BASE.startsWith("http")
+      ? API_BASE.replace("http", "ws")
+      : API_BASE; // fallback
+
   const url = `${WS_BASE}/ws/chat?token=${encodeURIComponent(token)}`;
+
   socket = new WebSocket(url);
 
   socket.onopen = () => {

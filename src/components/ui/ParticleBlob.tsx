@@ -318,7 +318,7 @@ export default function ParticleBlob({
     return (
         <div
             ref={blobRef}
-            className="absolute w-60 h-60"
+            className="absolute w-40 h-40"
             style={{ left: 0, top: 0 }}
         >
             {/* Neon glow background */}

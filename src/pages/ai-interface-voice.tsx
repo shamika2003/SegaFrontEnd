@@ -44,7 +44,7 @@ type ChatList = {
     created_at: string;
 };
 
-const API_BASE = import.meta.env.VITE_API_URL;
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function AIInterfaceVoice() {
     const { conversationId: routeConversationId } = useParams();
@@ -59,6 +59,7 @@ export default function AIInterfaceVoice() {
     const pendingAudioChunksRef = useRef<string[]>([]);
     const isPlayingRef = useRef(false);
     const audioQueueRef = useRef<{ buffer: AudioBuffer }[]>([]);
+    const pendingExtrasByMessage = useRef<Record<string, ExtraMessage[]>>({});
 
     const [chatList, setChatList] = useState<ChatList[]>([]);
     const [, setMessages] = useState<ChatMessage[]>([]);
@@ -288,15 +289,14 @@ export default function AIInterfaceVoice() {
             }
 
             if (msg.type === "extra_details") {
-                console.log(msg.content);
-                setExtraMessages(prev => [
-                    ...prev,
-                    {
-                        id: crypto.randomUUID(),
-                        role: "Extra",
-                        content: msg.content,
-                    } as ExtraMessage
-                ]);
+                if (!pendingExtrasByMessage.current[msg.message_id]) {
+                    pendingExtrasByMessage.current[msg.message_id] = [];
+                }
+                pendingExtrasByMessage.current[msg.message_id].push({
+                    id: crypto.randomUUID(),
+                    role: "Extra",
+                    content: msg.content,
+                } as ExtraMessage);
             }
 
             // Streaming token
@@ -304,18 +304,14 @@ export default function AIInterfaceVoice() {
                 const isLastChunk = msg.done ?? false;
                 playAudioChunk(msg.data, isLastChunk);
 
-                setMessages(prev => {
-                    const index = prev.findIndex(m => m.id === msg.message_id);
-                    if (index !== -1) {
-                        const updated = [...prev];
-                        updated[index] = { ...updated[index], streaming: true };
-                        return updated;
-                    }
-                    return [
+                // flush extras for this message_id when playback starts
+                if (!isPlayingRef.current && pendingExtrasByMessage.current[msg.message_id]) {
+                    setExtraMessages(prev => [
                         ...prev,
-                        { id: msg.message_id, role: "Assistant", content: "", streaming: true }
-                    ];
-                });
+                        ...pendingExtrasByMessage.current[msg.message_id],
+                    ]);
+                    delete pendingExtrasByMessage.current[msg.message_id];
+                }
             }
 
 
@@ -428,7 +424,6 @@ export default function AIInterfaceVoice() {
                 }
 
                 const data = await res.json();
-                console.log("Auth check response:", data);
 
                 if (data.access_token) {
                     setAccessToken(data.access_token);
@@ -444,7 +439,7 @@ export default function AIInterfaceVoice() {
 
         checkAuth();
     }, []);
-                console.log("Auth check response:", );
+
     useEffect(() => {
         if (!authChecked || !accessToken) return;
 
@@ -951,66 +946,69 @@ export default function AIInterfaceVoice() {
                                     />
                                 </div>
 
-                                <div className="w-3/4 h-full overflow-x-auto h-full overflow-y-auto px-12 py-4 space-y-4 m-5 scroll-fade">
-                                    {extraMessages.map((m) => {
-                                        const renderContent = (content: any) => {
-                                            if (typeof content === "string") return content;
-                                            if (typeof content === "object") return Object.entries(content)
-                                                .map(([k, v]) => `**${k}**: ${JSON.stringify(v)}`)
-                                                .join("\n");
-                                            return String(content);
-                                        };
-                                        return (
+                                <div className="w-3/4 h-full h-full mr-4 pb-28 space-y-4 m-5">
 
-                                            <div
-                                                key={m.id}
-                                                className={`rounded-xl p-3 dark:text-white markdown`}
-                                            >
-                                                <ReactMarkdown
-                                                    remarkPlugins={[remarkGfm]}
-                                                    rehypePlugins={[rehypeHighlight]}
-                                                    components={{
-                                                        code({ className, children, ...props }) {
-                                                            const match = /language-(\w+)/.exec(className || "");
-                                                            const language = match?.[1];
-                                                            const isBlock = !!language;
+                                    <div className="overflow-x-hidden scroll-fade w-full h-full overflow-y-auto p-4">
+                                        {extraMessages.map((m) => {
+                                            const renderContent = (content: any) => {
+                                                if (typeof content === "string") return content;
+                                                if (typeof content === "object")
+                                                    return Object.entries(content)
+                                                        .map(([k, v]) => `**${k}**: ${JSON.stringify(v)}`)
+                                                        .join("\n");
+                                                return String(content);
+                                            };
 
-                                                            if (!isBlock) {
-                                                                return <code className="inline-code">{children}</code>;
-                                                            }
-
-                                                            const codeText = getTextFromReactNode(children).replace(/\n$/, "");
-
-                                                            const [copied, setCopied] = useState(false);
-
-                                                            const handleCopy = async () => {
-                                                                await navigator.clipboard.writeText(codeText);
-                                                                setCopied(true);
-                                                                setTimeout(() => setCopied(false), 2000);
-                                                            };
-
-                                                            return (
-                                                                <div className="code-block">
-                                                                    <div className="code-lang">
-                                                                        <span>{language.toUpperCase()}</span>
-                                                                        <button onClick={handleCopy} disabled={copied} className="copy-btn">
-                                                                            {copied ? "Copied ✓" : "Copy"}
-                                                                        </button>
-                                                                    </div>
-                                                                    <pre className={className}>
-                                                                        <code {...props}>{children}</code>
-                                                                    </pre>
-                                                                </div>
-                                                            );
-                                                        },
-                                                    }}
+                                            return (
+                                                <div
+                                                    key={m.id}
+                                                    className="dark:text-white markdown neon-border cyber-blue glitch-flicker p-2"
                                                 >
-                                                    {renderContent(m.content)}
-                                                </ReactMarkdown>
+                                                    <ReactMarkdown
+                                                        remarkPlugins={[remarkGfm]}
+                                                        rehypePlugins={[rehypeHighlight]}
+                                                        components={{
+                                                            code({ className, children, ...props }) {
+                                                                const match = /language-(\w+)/.exec(className || "");
+                                                                const language = match?.[1];
+                                                                const isBlock = !!language;
 
-                                            </div>
-                                        )
-                                    })}
+                                                                if (!isBlock) {
+                                                                    return <code className="inline-code">{children}</code>;
+                                                                }
+
+                                                                const codeText = getTextFromReactNode(children).replace(/\n$/, "");
+
+                                                                const [copied, setCopied] = useState(false);
+
+                                                                const handleCopy = async () => {
+                                                                    await navigator.clipboard.writeText(codeText);
+                                                                    setCopied(true);
+                                                                    setTimeout(() => setCopied(false), 2000);
+                                                                };
+
+                                                                return (
+                                                                    <div className="code-block">
+                                                                        <div className="code-lang">
+                                                                            <span>{language.toUpperCase()}</span>
+                                                                            <button onClick={handleCopy} disabled={copied} className="copy-btn">
+                                                                                {copied ? "Copied ✓" : "Copy"}
+                                                                            </button>
+                                                                        </div>
+                                                                        <pre className={className}>
+                                                                            <code {...props}>{children}</code>
+                                                                        </pre>
+                                                                    </div>
+                                                                );
+                                                            },
+                                                        }}
+                                                    >
+                                                        {renderContent(m.content).replace(/\r?\n/g, "\n\n")}
+                                                    </ReactMarkdown>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
 
                             </div>
