@@ -20,20 +20,10 @@
   animation: gradient-move 5s ease infinite;
 }
 
-
-
 @keyframes gradient-move {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 /* src/styles/neon-border.css */
@@ -41,6 +31,8 @@
   position: relative;
   border: 2px solid transparent;
   border-radius: inherit;
+  padding: 0.5rem;        /* added padding so glow has space */
+  overflow: visible;       /* allow glow outside element */
 }
 
 /* glowing outer ring */
@@ -49,12 +41,12 @@
   position: absolute;
   inset: -3px;
   border-radius: inherit;
-  background: var(--neon-gradient, linear-gradient(45deg,
-        #ff00ff, #00ffff, #ff00ff, #00ffff));
+  background: var(--neon-gradient, linear-gradient(45deg, #ff00ff, #00ffff, #ff00ff, #00ffff));
   background-size: 400% 400%;
   filter: blur(var(--neon-blur, 4px));
   animation: var(--neon-anim, neon-pulse 3s linear infinite);
-  z-index: -1;
+  z-index: 0;               /* changed from -1 so glow is visible */
+  pointer-events: none;
 }
 
 /* subtle inner sheen */
@@ -64,30 +56,13 @@
   inset: 0;
   border-radius: inherit;
   box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.3);
-}
-
-/* default pulse */
-@keyframes neon-pulse {
-
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-@keyframes glow-flicker {
-  0%, 100% { opacity: 0.1; }  
-  50%      { opacity: 0.2; }  
+  z-index: 1;               /* ensures content stays above inner sheen */
 }
 
 .glitch-flicker::before {
   animation:
     var(--neon-anim, neon-pulse 3s linear infinite),
-    glow-flicker 2.2s ease-in-out infinite;     
+    glow-flicker 2.2s ease-in-out infinite;
 }
 
 .glitch-flicker:hover::before,
@@ -98,8 +73,30 @@
 }
 
 .cyber-blue {
-  --neon-gradient: linear-gradient(45deg,
-      #00f5ff, #0044ff, #00f5ff, #0044ff);
+  --neon-gradient: linear-gradient(45deg, #00f5ff, #0044ff, #00f5ff, #0044ff);
   --neon-blur: 4px;
   --neon-anim: neon-pulse 3s linear infinite;
+}
+
+/* default pulse */
+@keyframes neon-pulse {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes glow-flicker {
+  0%, 100% { opacity: 0.1; }  
+  50%      { opacity: 0.2; }  
+}
+
+/* make sure pseudo-elements don't block interactions */
+.neon-border::before,
+.glitch-flicker::before {
+  pointer-events: none;
+}
+
+/* Ensure content sits above glow */
+.neon-border > * {
+  position: relative;
+  z-index: 2;
 }

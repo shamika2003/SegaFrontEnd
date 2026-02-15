@@ -18,6 +18,9 @@ import ParticleBlob from "../components/ui/ParticleBlob";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
+import LinkPreview from "../components/layout/LinkPreview";
 
 type ChatMessage = {
     id: string;
@@ -289,6 +292,15 @@ export default function AIInterfaceVoice() {
             }
 
             if (msg.type === "extra_details") {
+                console.log("Received extra details:", msg.content);
+                setExtraMessages(prev => [
+                    ...prev,
+                    {
+                        id: crypto.randomUUID(),
+                        role: "Extra",
+                        content: msg.content,
+                    } as ExtraMessage,
+                ]);
                 if (!pendingExtrasByMessage.current[msg.message_id]) {
                     pendingExtrasByMessage.current[msg.message_id] = [];
                 }
@@ -297,6 +309,10 @@ export default function AIInterfaceVoice() {
                     role: "Extra",
                     content: msg.content,
                 } as ExtraMessage);
+            }
+
+            if (msg.type === "token") {
+                console.log("Received token chunk:", msg.content);
             }
 
             // Streaming token
@@ -653,6 +669,77 @@ export default function AIInterfaceVoice() {
         navigate("/ai-interface");
     };
 
+    function CodeBlock({
+        language,
+        codeText,
+    }: {
+        language: string;
+        codeText: string;
+    }) {
+        const [copied, setCopied] = useState(false);
+
+        const handleCopy = async () => {
+            try {
+                await navigator.clipboard.writeText(codeText);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch (err) {
+                console.error("Copy failed:", err);
+            }
+        };
+
+        return (
+            <div className="code-block">
+                <div className="code-lang">
+                    <span>{language.toUpperCase()}</span>
+                    <button
+                        onClick={handleCopy}
+                        disabled={copied}
+                        className="copy-btn"
+                    >
+                        {copied ? "Copied ✓" : "Copy"}
+                    </button>
+                </div>
+                <pre>
+                    <code className={`language-${language}`}>
+                        {codeText}
+                    </code>
+                </pre>
+            </div>
+        );
+    }
+
+    function YouTubePreview({ url }: { url: string }) {
+        const getVideoId = (url: string) => {
+            const regExp =
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/;
+            const match = url.match(regExp);
+            return match?.[1];
+        };
+
+        const videoId = getVideoId(url);
+        if (!videoId) return null;
+
+        return (
+            <div className="my-4 rounded-xl overflow-hidden border border-white/10 bg-black/30 backdrop-blur">
+                <iframe
+                    className="w-full aspect-video"
+                    src={`https://www.youtube.com/embed/${videoId}`}
+                    title="YouTube video player"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                />
+            </div>
+        );
+    }
+
+    function autoLinkImages(text: string) {
+        return text.replace(
+            /(https?:\/\/[^\s]+\.(png|jpe?g|gif|webp|svg))/gi,
+            "![]($1)"
+        );
+    }
+
     return (
         <main className="relative h-screen dark:bg-gradient-to-b from-[#0b0f14] via-[#070a0f] to-black">
 
@@ -966,45 +1053,103 @@ export default function AIInterfaceVoice() {
                                                 >
                                                     <ReactMarkdown
                                                         remarkPlugins={[remarkGfm]}
-                                                        rehypePlugins={[rehypeHighlight]}
+                                                        rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeHighlight]}
                                                         components={{
-                                                            code({ className, children, ...props }) {
+                                                            img({ src, alt }) {
+                                                                return (
+                                                                    <img
+                                                                        src={src}
+                                                                        alt={alt || "image"}
+                                                                        loading="lazy"
+                                                                        className="rounded-lg my-3 max-w-full"
+                                                                    />
+                                                                );
+                                                            },
+
+                                                            a({ href, children }) {
+                                                                if (!href) return null;
+
+                                                                const isYouTube =
+                                                                    /(?:youtube\.com\/watch\?v=|youtu\.be\/)/.test(href);
+
+                                                                const isImage =
+                                                                    /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(href);
+
+                                                                const isVideo =
+                                                                    /\.(mp4|webm|ogg)$/i.test(href);
+
+
+                                                                const isNormalSite = !isImage && !isYouTube && !isVideo;
+
+                                                                if (isYouTube) {
+                                                                    return <YouTubePreview url={href} />;
+                                                                }
+
+                                                                if (isImage) {
+                                                                    return (
+                                                                        <div className="my-3">
+                                                                            <img
+                                                                                src={href}
+                                                                                alt={typeof children === "string" ? children : "image"}
+                                                                                loading="lazy"
+                                                                                className="rounded-xl max-w-full border border-white/10"
+                                                                            />
+                                                                        </div>
+                                                                    );
+                                                                }
+
+                                                                if (isVideo) {
+                                                                    return (
+                                                                        <video controls className="rounded-xl my-3 max-w-full">
+                                                                            <source src={href} />
+                                                                        </video>
+                                                                    );
+                                                                }
+
+                                                                if (isNormalSite) {
+                                                                    // Lazy‑load the component only for normal links
+                                                                    // (optional: you can `React.lazy` it for code‑splitting)
+                                                                    return <LinkPreview href={href} />;
+                                                                }
+
+                                                                return (
+                                                                    <a
+                                                                        href={href}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer nofollow"
+                                                                        className="text-indigo-400 hover:underline break-all"
+                                                                    >
+                                                                        {children}
+                                                                    </a>
+                                                                );
+                                                            },
+
+                                                            code({ className, children }) {
                                                                 const match = /language-(\w+)/.exec(className || "");
                                                                 const language = match?.[1];
-                                                                const isBlock = !!language;
 
-                                                                if (!isBlock) {
-                                                                    return <code className="inline-code">{children}</code>;
+                                                                if (!language) {
+                                                                    return (
+                                                                        <code className="inline-code">
+                                                                            {children}
+                                                                        </code>
+                                                                    );
                                                                 }
 
                                                                 const codeText = getTextFromReactNode(children).replace(/\n$/, "");
 
-                                                                const [copied, setCopied] = useState(false);
-
-                                                                const handleCopy = async () => {
-                                                                    await navigator.clipboard.writeText(codeText);
-                                                                    setCopied(true);
-                                                                    setTimeout(() => setCopied(false), 2000);
-                                                                };
-
                                                                 return (
-                                                                    <div className="code-block">
-                                                                        <div className="code-lang">
-                                                                            <span>{language.toUpperCase()}</span>
-                                                                            <button onClick={handleCopy} disabled={copied} className="copy-btn">
-                                                                                {copied ? "Copied ✓" : "Copy"}
-                                                                            </button>
-                                                                        </div>
-                                                                        <pre className={className}>
-                                                                            <code {...props}>{children}</code>
-                                                                        </pre>
-                                                                    </div>
+                                                                    <CodeBlock
+                                                                        language={language}
+                                                                        codeText={codeText}
+                                                                    />
                                                                 );
                                                             },
                                                         }}
                                                     >
-                                                        {renderContent(m.content).replace(/\r?\n/g, "\n\n")}
+                                                        {autoLinkImages(renderContent(m.content))}
                                                     </ReactMarkdown>
+
                                                 </div>
                                             );
                                         })}

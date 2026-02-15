@@ -18,6 +18,8 @@ import { FcGoogle } from "react-icons/fc";
 import { useGoogleLogin } from "@react-oauth/google";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { useNavigate, useParams } from "react-router-dom";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 
 type ChatMessage = {
   id: string;
@@ -575,7 +577,48 @@ export default function AIInterface() {
     }
     return "";
   }
-  
+
+  function CodeBlock({
+    language,
+    codeText,
+  }: {
+    language: string;
+    codeText: string;
+  }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = async () => {
+      try {
+        await navigator.clipboard.writeText(codeText);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error("Copy failed:", err);
+      }
+    };
+
+    return (
+      <div className="code-block">
+        <div className="code-lang">
+          <span>{language.toUpperCase()}</span>
+          <button
+            onClick={handleCopy}
+            disabled={copied}
+            className="copy-btn"
+          >
+            {copied ? "Copied ✓" : "Copy"}
+          </button>
+        </div>
+        <pre>
+          <code className={`language-${language}`}>
+            {codeText}
+          </code>
+        </pre>
+      </div>
+    );
+  }
+
+
   useEffect(() => {
     // Scroll ONLY when:
     // - user sends a message
@@ -900,39 +943,64 @@ export default function AIInterface() {
                     >
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeHighlight]}
+                        rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeHighlight]}
                         components={{
-                          code({ className, children, ...props }) {
+                          img({ src, alt }) {
+                            return (
+                              <img
+                                src={src}
+                                alt={alt || "image"}
+                                loading="lazy"
+                                className="rounded-lg my-3 max-w-full"
+                              />
+                            );
+                          },
+
+                          a({ href, children }) {
+                            const isVideo = href?.match(/\.(mp4|webm|ogg)$/i);
+
+                            if (isVideo) {
+                              return (
+                                <video
+                                  controls
+                                  className="rounded-lg my-3 max-w-full"
+                                >
+                                  <source src={href} />
+                                </video>
+                              );
+                            }
+
+                            return (
+                              <a
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer nofollow"
+                                className="text-indigo-500 hover:underline"
+                              >
+                                {children}
+                              </a>
+                            );
+                          },
+
+                          code({ className, children }) {
                             const match = /language-(\w+)/.exec(className || "");
                             const language = match?.[1];
-                            const isBlock = !!language;
 
-                            if (!isBlock) {
-                              return <code className="inline-code">{children}</code>;
+                            if (!language) {
+                              return (
+                                <code className="inline-code">
+                                  {children}
+                                </code>
+                              );
                             }
 
                             const codeText = getTextFromReactNode(children).replace(/\n$/, "");
 
-                            const [copied, setCopied] = useState(false);
-
-                            const handleCopy = async () => {
-                              await navigator.clipboard.writeText(codeText);
-                              setCopied(true);
-                              setTimeout(() => setCopied(false), 2000);
-                            };
-
                             return (
-                              <div className="code-block">
-                                <div className="code-lang">
-                                  <span>{language.toUpperCase()}</span>
-                                  <button onClick={handleCopy} disabled={copied} className="copy-btn">
-                                    {copied ? "Copied ✓" : "Copy"}
-                                  </button>
-                                </div>
-                                <pre className={className}>
-                                  <code {...props}>{children}</code>
-                                </pre>
-                              </div>
+                              <CodeBlock
+                                language={language}
+                                codeText={codeText}
+                              />
                             );
                           },
                         }}
