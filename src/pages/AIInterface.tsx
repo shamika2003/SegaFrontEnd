@@ -620,9 +620,6 @@ export default function AIInterface() {
 
 
   useEffect(() => {
-    // Scroll ONLY when:
-    // - user sends a message
-    // - assistant message is first created
     if (!isAssistantStreaming) {
       bottomRef.current?.scrollIntoView({
         behavior: "smooth",
