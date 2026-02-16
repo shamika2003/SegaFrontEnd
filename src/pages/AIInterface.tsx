@@ -353,12 +353,15 @@ export default function AIInterface() {
           },
         });
 
+        console.log("Checking auth with token:", accessToken);
         if (!res.ok) {
           setAuthChecked(true);
           return;
         }
 
         const data = await res.json();
+
+        console.log(data);
 
         if (data.access_token) {
           setAccessToken(data.access_token);
