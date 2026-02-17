@@ -149,8 +149,8 @@ export default function ParticleBlob({
                     const sprite = new PIXI.Graphics();
                     const color = colors[Math.floor(Math.random() * colors.length)];
                     const size = 0.1 + Math.random() * 1.2;
-                    sprite.beginFill(color, 0.9);
-                    sprite.drawCircle(0, 0, size);
+                    sprite.fill({ color: color, alpha: 0.9 });
+                    sprite.circle(0, 0, size);
                     sprite.endFill();
                     sprite.x = px;
                     sprite.y = py;
@@ -173,7 +173,12 @@ export default function ParticleBlob({
                 // Update waves
                 waves.forEach(({ wave, points, phaseOffset, pulseSpeed, frequency }) => {
                     wave.clear();
-                    wave.lineStyle(waveConfig.lineWidth, waveConfig.color, 1);
+                    wave.setStrokeStyle({
+                        width: waveConfig.lineWidth,
+                        color: waveConfig.color,
+                        alpha: 1
+                    });
+
                     wave.moveTo(0, centerY);
                     for (let i = 0; i <= waveConfig.points; i++) {
                         const p = points[i];
