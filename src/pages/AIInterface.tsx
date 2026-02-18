@@ -344,8 +344,6 @@ export default function AIInterface() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        console.log("checkAuth called with token:", accessToken);
-        console.log("check API_BASE:", API_BASE);
         const res = await fetch(`${API_BASE}/api/auth/check`, {
           method: "POST",
           credentials: "include",
@@ -355,7 +353,6 @@ export default function AIInterface() {
           },
         });
 
-        console.log("Checking auth with token:", accessToken);
         if (!res.ok) {
           setAuthChecked(true);
           return;
@@ -363,11 +360,9 @@ export default function AIInterface() {
 
         const data = await res.json();
 
-        console.log(data);
-
         if (data.access_token) {
           setAccessToken(data.access_token);
-          window.__ACCESS_TOKEN__ = data.access_token; // TEMP bridge
+          window.__ACCESS_TOKEN__ = data.access_token;
         }
 
         setAuthChecked(true);
