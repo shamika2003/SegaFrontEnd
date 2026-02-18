@@ -344,6 +344,7 @@ export default function AIInterface() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log("checkAuth called with token:", accessToken);
         const res = await fetch(`${API_BASE}/api/auth/check`, {
           method: "POST",
           credentials: "include",
