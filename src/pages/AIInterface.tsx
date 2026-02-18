@@ -345,6 +345,7 @@ export default function AIInterface() {
     const checkAuth = async () => {
       try {
         console.log("checkAuth called with token:", accessToken);
+        console.log("check API_BASE:", API_BASE);
         const res = await fetch(`${API_BASE}/api/auth/check`, {
           method: "POST",
           credentials: "include",
