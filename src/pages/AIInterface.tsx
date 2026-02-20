@@ -893,8 +893,9 @@ export default function AIInterface() {
                   <button
                     key={index}
                     onClick={() => navigate(`/ai-interface/c/${chat.id}`)}
-                    className="group relative w-full px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300
-                    hover:bg-gray-300 dark:hover:bg-gray-900 transition-colors flex items-center gap-3"
+                    className={`group relative w-full px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300
+                    hover:bg-gray-300 dark:hover:bg-gray-900 transition-colors flex items-center gap-3
+                    ${chat.id == conversationId ? "dark:bg-gray-900 bg-gray-300":""}`}
                   >
                     {/* Text */}
                     {isOpen && (
