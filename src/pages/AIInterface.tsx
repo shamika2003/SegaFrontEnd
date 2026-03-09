@@ -3,6 +3,7 @@ import {
   ArrowLeftFromLine,
   ArrowRightFromLine,
   AudioLines,
+  Plus,
   Send,
   SquarePen,
   TextSearch
@@ -40,6 +41,13 @@ type ChatList = {
   created_at: string;
 };
 
+type Preview = {
+  id: string;
+  name: string;
+  url?: string;
+};
+
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function AIInterface() {
@@ -53,6 +61,8 @@ export default function AIInterface() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const typingTitlesRef = useRef(new Set<string>());
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const [chatList, setChatList] = useState<ChatList[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -67,6 +77,10 @@ export default function AIInterface() {
   const [isOpen, setIsOpen] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [emailValue, setEmailValue] = useState("");
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [fileName, setFileName] = useState('');
+  const [imageName, setImageName] = useState('');
+  const [previews, setPreviews] = useState<Preview[]>([]);
 
   // set user state
   const [user, setUser] = useState<User | null>(() => {
@@ -162,6 +176,10 @@ export default function AIInterface() {
     el.style.height = el.scrollHeight + "px";
   };
 
+  const handleClick = () => {
+    textareaRef.current?.focus();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -185,42 +203,67 @@ export default function AIInterface() {
       );
 
       if (index >= fullTitle.length) clearInterval(interval);
-    }, 50); // 50ms per character, adjust speed here
+    }, 10);
   };
 
-  const sendCurrentMessage = () => {
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const sendCurrentMessage = async () => {
     const el = textareaRef.current;
     if (!el || isSending) return;
 
     const text = el.value.trim();
-    if (!text) return;
+    if (!text && !fileName && !imageName) return; // allow sending only file/image
 
     const token = window.__ACCESS_TOKEN__;
-    if (!token) {
-      console.warn("No access token – socket not connected");
-      return;
-    }
+    if (!token) return;
 
     ensureSocket();
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        role: "User",
-        content: text,
-      },
-    ]);
+    const files: { type: "image" | "file"; name: string; content: string }[] = [];
 
-    sendMessage({
+    if (fileName) {
+      const fileObj = document.querySelector<HTMLInputElement>("#fileInput")!.files![0];
+      const content = await fileToBase64(fileObj);
+      files.push({ type: "file", name: fileObj.name, content });
+    }
+
+    if (imageName) {
+      const imageObj = document.querySelector<HTMLInputElement>("#imageInput")!.files![0];
+      const content = await fileToBase64(imageObj);
+      files.push({ type: "image", name: imageObj.name, content });
+    }
+
+    const msgPayload = {
       user_input: text,
       conversation_id: conversationId,
       response_mode: "text_stream",
-    });
+      files
+    };
+
+    setMessages((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role: "User", content: text || `[${files.map(f => f.name).join(", ")}]` },
+    ]);
+
+    sendMessage(msgPayload);
 
     setIsSending(true);
     el.value = "";
     autoResize();
+    setFileName('');
+    setImageName('');
+    setPreviews(prev => {
+      prev.forEach(p => p.url && URL.revokeObjectURL(p.url));
+      return [];
+    });
   };
 
   const ensureSocket = () => {
@@ -628,6 +671,54 @@ export default function AIInterface() {
     }
   }, [messages.length]);
 
+  const makeId = () => Math.random().toString(36).substring(2, 9);
+
+  //  files
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+
+    // clean up old blob URLs first
+    previews.forEach(p => p.url && URL.revokeObjectURL(p.url));
+
+    const newPreviews = files.map(f => ({
+      id: makeId(),
+      name: f.name,
+      // no url → plain file
+    }));
+    setPreviews(prev => [...prev, ...newPreviews]);
+
+    // reset the input so the same file can be chosen again later
+    e.target.value = "";
+
+    setPopupOpen(false);
+  };
+
+  // images
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+
+    // clean up previous image URLs
+    previews.forEach(p => p.url && URL.revokeObjectURL(p.url));
+
+    const newPreviews = files.map(img => {
+      const url = URL.createObjectURL(img);
+      return { id: makeId(), name: img.name, url };
+    });
+    setPreviews(prev => [...prev, ...newPreviews]);
+
+    e.target.value = "";
+
+    setPopupOpen(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      // component is going away → revoke every blob URL we created
+      previews.forEach(p => p.url && URL.revokeObjectURL(p.url));
+    };
+  }, [previews]);
 
   return (
     <main className="relative h-screen dark:bg-gradient-to-b from-[#0b0f14] via-[#070a0f] to-black">
@@ -895,7 +986,7 @@ export default function AIInterface() {
                     onClick={() => navigate(`/ai-interface/c/${chat.id}`)}
                     className={`group relative w-full px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300
                     hover:bg-gray-300 dark:hover:bg-gray-900 transition-colors flex items-center gap-3
-                    ${chat.id == conversationId ? "dark:bg-gray-900 bg-gray-300":""}`}
+                    ${chat.id == conversationId ? "dark:bg-gray-900 bg-gray-300" : ""}`}
                   >
                     {/* Text */}
                     {isOpen && (
@@ -911,8 +1002,8 @@ export default function AIInterface() {
 
             <div
               ref={scrollRef}
-              className="flex-1 w-full overflow-x-auto h-full overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade">
-
+              className="flex-1 w-full overflow-x-auto h-full overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade"
+            >
               {messages.map((m, i) => {
                 const isLastAssistant =
                   m.role === "Assistant" && i === messages.length - 1;
@@ -923,89 +1014,90 @@ export default function AIInterface() {
                     style={{
                       minHeight: (() => {
                         if (!isLastAssistant) return "auto";
-
                         const el = scrollRef.current;
                         if (!el) return "auto";
-
                         return el.scrollHeight > el.clientHeight ? "54vh" : "auto";
                       })(),
                     }}
-                    className={`flex w-full ${m.role === "User" ? "justify-end" : "justify-start"}`}
+                    className={`flex w-full ${m.role === "User" ? "justify-end" : "justify-start"
+                      }`}
                   >
                     <div
-                      className={`rounded-xl p-3 dark:text-white 
-                        ${m.role === "User"
-                          ? "max-w-2xl bg-blue-500/20 user-message"
-                          : "markdown"
+                      className={`rounded-xl p-3 dark:text-white ${m.role === "User"
+                        ? "max-w-2xl bg-blue-500/20 user-message"
+                        : "markdown"
                         }`}
                     >
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeHighlight]}
-                        components={{
-                          img({ src, alt }) {
-                            return (
-                              <img
-                                src={src}
-                                alt={alt || "image"}
-                                loading="lazy"
-                                className="rounded-lg my-3 max-w-full"
-                              />
-                            );
-                          },
-
-                          a({ href, children }) {
-                            const isVideo = href?.match(/\.(mp4|webm|ogg)$/i);
-
-                            if (isVideo) {
+                      {m.role === "User" ? (
+                        // Show user messages literally
+                        <pre className="whitespace-pre-wrap">{m.content}</pre>
+                      ) : (
+                        // Assistant messages with ReactMarkdown
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeHighlight]}
+                          components={{
+                            img({ src, alt }) {
                               return (
-                                <video
-                                  controls
+                                <img
+                                  src={src}
+                                  alt={alt || "image"}
+                                  loading="lazy"
                                   className="rounded-lg my-3 max-w-full"
-                                >
-                                  <source src={href} />
-                                </video>
+                                />
                               );
-                            }
+                            },
 
-                            return (
-                              <a
-                                href={href}
-                                target="_blank"
-                                rel="noopener noreferrer nofollow"
-                                className="text-indigo-500 hover:underline"
-                              >
-                                {children}
-                              </a>
-                            );
-                          },
-
-                          code({ className, children }) {
-                            const match = /language-(\w+)/.exec(className || "");
-                            const language = match?.[1];
-
-                            if (!language) {
+                            a({ href, children }) {
+                              const isVideo = href?.match(/\.(mp4|webm|ogg)$/i);
+                              if (isVideo) {
+                                return (
+                                  <video
+                                    controls
+                                    className="rounded-lg my-3 max-w-full"
+                                  >
+                                    <source src={href} />
+                                  </video>
+                                );
+                              }
                               return (
-                                <code className="inline-code">
+                                <a
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer nofollow"
+                                  className="text-indigo-500 hover:underline"
+                                >
                                   {children}
-                                </code>
+                                </a>
                               );
-                            }
+                            },
 
-                            const codeText = getTextFromReactNode(children).replace(/\n$/, "");
+                            code({ className, children }) {
+                              const match = /language-(\w+)/.exec(className || "");
+                              const language = match?.[1];
 
-                            return (
-                              <CodeBlock
-                                language={language}
-                                codeText={codeText}
-                              />
-                            );
-                          },
-                        }}
-                      >
-                        {m.content}
-                      </ReactMarkdown>
+                              if (!language) {
+                                return (
+                                  <code className="inline-code">
+                                    {children}
+                                  </code>
+                                );
+                              }
 
+                              const codeText = getTextFromReactNode(children).replace(/\n$/, "");
+
+                              return (
+                                <CodeBlock
+                                  language={language}
+                                  codeText={codeText}
+                                />
+                              );
+                            },
+                          }}
+                        >
+                          {m.content}
+                        </ReactMarkdown>
+                      )}
                     </div>
                   </div>
                 );
@@ -1020,9 +1112,8 @@ export default function AIInterface() {
               {hasScroll && (
                 <div
                   style={{
-                    height: isSending || isAssistantStreaming
-                      ? "60vh"
-                      : "12vh",
+                    height:
+                      isSending || isAssistantStreaming ? "60vh" : "12vh",
                     minHeight: "72px",
                   }}
                 />
@@ -1037,19 +1128,111 @@ export default function AIInterface() {
               <div className="h-16 px-28 flex items-end">
                 <div className="w-full flex items-end gap-3 bg-black/20 py-2 px-3 backdrop-blur rounded-3xl
                                 focus-within:ring-1 focus-within:ring-blue-500 focus-within:ring-opacity-50
-                                border border-white/10 transition">
+                                border border-white/10 transition"
+                  onClick={handleClick}>
 
-                  <textarea
-                    ref={textareaRef}
-                    rows={1}
-                    placeholder="Type a message..."
-                    className="flex-1 resize-none bg-transparent scroll-fade px-4 py-2 pb-3 dark:text-white placeholder-gray-900 dark:placeholder-gray-400 outline-none max-h-40"
-                    onInput={autoResize}
-                    onKeyDown={handleKeyDown}
-                  />
+                  <div className="relative inline-block">
+                    <button
+                      onClick={() => setPopupOpen(!popupOpen)}
+                      className="dark:text-white px-2 py-2 rounded-full transition bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 disabled:opacity-50">
+                      <Plus
+                        className={`transition-transform duration-200 ${popupOpen ? "rotate-180" : "rotate-0"
+                          }`}
+                      />
+                    </button>
+
+                    {/* Popup */}
+                    {popupOpen && (
+                      <div className="absolute bottom-full mb-2 -translate-x-1/2 
+                        bg-white dark:bg-zinc-800/40
+                        shadow-lg rounded-lg p-2 w-40">
+
+                        <input
+                          type="file"
+                          multiple
+                          ref={fileInputRef}
+                          style={{ display: "none" }}
+                          onChange={handleFileSelect}
+                        />
+
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          ref={imageInputRef}
+                          style={{ display: "none" }}
+                          onChange={handleImageSelect}
+                        />
+
+                        <button
+                          className="text-sm w-full text-start p-2 hover:bg-black/10
+                            dark:hover:bg-white/10 dark:text-white rounded-lg"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          Upload file
+                        </button>
+                        <hr className="mb-1 mt-1" />
+                        <button
+                          className="text-sm w-full text-start p-2 hover:bg-black/10
+                            dark:hover:bg-white/10 dark:text-white rounded-lg"
+                          onClick={() => imageInputRef.current?.click()}
+                        >
+                          Upload image
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 items-center p-0 mb-0">
+                    {previews.length > 0 && (
+                      <div className="flex flex-wrap gap-2 rounded-lg w-full">
+                        {previews.map(p => (
+                          <div
+                            key={p.id}
+                            className="flex items-center gap-1 bg-black/20 rounded-md p-1"
+                          >
+                            {/* Image thumbnail or file icon */}
+                            {p.url ? (
+                              <img
+                                src={p.url}
+                                alt={p.name}
+                                className="h-10 w-10 object-cover rounded"
+                              />
+                            ) : (
+                              <span className="text-xl">📄</span>
+                            )}
+
+                            {/* File name */}
+                            <span className="max-w-xs text-sm text-white truncate">{p.name}</span>
+
+                            {/* Remove button */}
+                            <button
+                              type="button"
+                              className="ml-1 text-gray-300 hover:text-white"
+                              onClick={() => {
+                                if (p.url) URL.revokeObjectURL(p.url);
+                                setPreviews(prev => prev.filter(item => item.id !== p.id));
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <textarea
+                      ref={textareaRef}
+                      rows={1}
+                      placeholder="Type a message..."
+                      className="w-full resize-none bg-transparent scroll-fade px-4 py-2 pb-2 dark:text-white placeholder-gray-900 dark:placeholder-gray-400 outline-none max-h-40"
+                      onInput={autoResize}
+                      onKeyDown={handleKeyDown}
+                    />
+                  </div>
 
                   <button
-                    className=" dark:text-white px-2 py-2 rounded-full transition bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 disabled:opacity-50"
+                    className="dark:text-white px-2 py-2 rounded-full transition bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 disabled:opacity-50"
                     onClick={sendCurrentMessage}
                     disabled={isSending}
                   >
