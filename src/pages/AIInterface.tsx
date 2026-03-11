@@ -487,7 +487,38 @@ export default function AIInterface() {
         }
 
         const data = await res.json();
-        setMessages(data.messages || []);
+
+        const parsed: ChatMessage[] = [];
+
+        for (const msg of data.messages || []) {
+
+          if (msg.item_type === "message") {
+            parsed.push({
+              id: msg.item_id,
+              role: msg.role === "Assistant" ? "Assistant" : "User",
+              content: msg.content || "",
+            });
+          }
+
+          if (msg.item_type === "upload") {
+            const url = `${API_BASE}/uploads/${msg.upload_id}.${msg.file_ext}`;
+
+            parsed.push({
+              id: msg.item_id,
+              role: "User",
+              content: "",
+              files: [
+                {
+                  type: msg.file_ext.match(/png|jpg|jpeg|gif|webp/i) ? "image" : "file",
+                  name: `${msg.upload_id}.${msg.file_ext}`,
+                  content: url,
+                },
+              ],
+            });
+          }
+        }
+
+        setMessages(parsed);
       } catch (err) {
         console.error("Error fetching conversation:", err);
         setMessages([]);
@@ -1069,7 +1100,7 @@ export default function AIInterface() {
                               )}
                             </div>
                           )}
-                          
+
                           {/* Text (if any) */}
                           {m.content && (
                             <pre className="whitespace-pre-wrap">{m.content}</pre>
