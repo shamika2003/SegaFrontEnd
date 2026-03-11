@@ -81,6 +81,7 @@ export default function AIInterface() {
   const [fileName, setFileName] = useState('');
   const [imageName, setImageName] = useState('');
   const [previews, setPreviews] = useState<Preview[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // set user state
   const [user, setUser] = useState<User | null>(() => {
@@ -220,25 +221,24 @@ export default function AIInterface() {
     if (!el || isSending) return;
 
     const text = el.value.trim();
-    if (!text && !fileName && !imageName) return; // allow sending only file/image
+    if (!text && !fileName && !imageName) return;
 
     const token = window.__ACCESS_TOKEN__;
     if (!token) return;
 
     ensureSocket();
 
+
     const files: { type: "image" | "file"; name: string; content: string }[] = [];
 
-    if (fileName) {
-      const fileObj = document.querySelector<HTMLInputElement>("#fileInput")!.files![0];
-      const content = await fileToBase64(fileObj);
-      files.push({ type: "file", name: fileObj.name, content });
-    }
+    for (const file of selectedFiles) {
+      const content = await fileToBase64(file);
 
-    if (imageName) {
-      const imageObj = document.querySelector<HTMLInputElement>("#imageInput")!.files![0];
-      const content = await fileToBase64(imageObj);
-      files.push({ type: "image", name: imageObj.name, content });
+      files.push({
+        type: file.type.startsWith("image") ? "image" : "file",
+        name: file.name,
+        content
+      });
     }
 
     const msgPayload = {
@@ -255,11 +255,14 @@ export default function AIInterface() {
 
     sendMessage(msgPayload);
 
+    console.log("FILES SENT:", files);
+
     setIsSending(true);
     el.value = "";
     autoResize();
     setFileName('');
     setImageName('');
+    setSelectedFiles([]);
     setPreviews(prev => {
       prev.forEach(p => p.url && URL.revokeObjectURL(p.url));
       return [];
@@ -678,19 +681,16 @@ export default function AIInterface() {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
 
-    // clean up old blob URLs first
-    previews.forEach(p => p.url && URL.revokeObjectURL(p.url));
+    setSelectedFiles(prev => [...prev, ...files]);
 
     const newPreviews = files.map(f => ({
       id: makeId(),
-      name: f.name,
-      // no url → plain file
+      name: f.name
     }));
+
     setPreviews(prev => [...prev, ...newPreviews]);
 
-    // reset the input so the same file can be chosen again later
     e.target.value = "";
-
     setPopupOpen(false);
   };
 
@@ -699,17 +699,17 @@ export default function AIInterface() {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
 
-    // clean up previous image URLs
-    previews.forEach(p => p.url && URL.revokeObjectURL(p.url));
+    setSelectedFiles(prev => [...prev, ...files]);
 
-    const newPreviews = files.map(img => {
-      const url = URL.createObjectURL(img);
-      return { id: makeId(), name: img.name, url };
-    });
+    const newPreviews = files.map(img => ({
+      id: makeId(),
+      name: img.name,
+      url: URL.createObjectURL(img)
+    }));
+
     setPreviews(prev => [...prev, ...newPreviews]);
 
     e.target.value = "";
-
     setPopupOpen(false);
   };
 
@@ -1126,6 +1126,7 @@ export default function AIInterface() {
             {/* Input bar */}
             <div className="absolute bottom-4 left-0 right-0 px-4 sm:px-8 lg:px-12 mb-2">
               <div className="h-16 px-28 flex items-end">
+
                 <div className="w-full flex items-end gap-3 bg-black/20 py-2 px-3 backdrop-blur rounded-3xl
                                 focus-within:ring-1 focus-within:ring-blue-500 focus-within:ring-opacity-50
                                 border border-white/10 transition"
