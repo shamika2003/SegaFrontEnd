@@ -27,6 +27,11 @@ type ChatMessage = {
   role: "User" | "Assistant";
   content: string;
   streaming?: boolean;
+  files?: {
+    type: "image" | "file";
+    name: string;
+    content: string;
+  }[];
 };
 
 type User = {
@@ -248,9 +253,14 @@ export default function AIInterface() {
       files
     };
 
-    setMessages((prev) => [
+    setMessages(prev => [
       ...prev,
-      { id: crypto.randomUUID(), role: "User", content: text || `[${files.map(f => f.name).join(", ")}]` },
+      {
+        id: crypto.randomUUID(),
+        role: "User",
+        content: text,
+        files: files.length ? files : undefined,
+      },
     ]);
 
     sendMessage(msgPayload);
@@ -258,11 +268,11 @@ export default function AIInterface() {
     console.log("FILES SENT:", files);
 
     setIsSending(true);
+    setSelectedFiles([]);
     el.value = "";
     autoResize();
     setFileName('');
     setImageName('');
-    setSelectedFiles([]);
     setPreviews(prev => {
       prev.forEach(p => p.url && URL.revokeObjectURL(p.url));
       return [];
@@ -1029,8 +1039,42 @@ export default function AIInterface() {
                         }`}
                     >
                       {m.role === "User" ? (
-                        // Show user messages literally
-                        <pre className="whitespace-pre-wrap">{m.content}</pre>
+                        <div className="flex flex-col gap-2">
+
+                          {/*  Attachments */}
+                          {m.files && m.files.length > 0 && (
+                            <div className="flex flex-wrap gap-3">
+                              {m.files.map((f, idx) =>
+                                f.type === "image" ? (
+                                  // ---- Image preview ----
+                                  <img
+                                    key={idx}
+                                    src={f.content}
+                                    alt={f.name}
+                                    className="max-w-xs rounded-lg shadow-sm"
+                                  />
+                                ) : (
+                                  // ---- Generic file link ----
+                                  <a
+                                    key={idx}
+                                    href={f.content}
+                                    download={f.name}
+                                    className="flex items-center gap-1 px-3 py-2 bg-gray-200/70 rounded-md hover:bg-gray-300"
+                                  >
+                                    {/* a tiny file‑icon – you can replace it with any icon you like */}
+                                    <span className="text-xl">📄</span>
+                                    <span className="text-sm">{f.name}</span>
+                                  </a>
+                                )
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Text (if any) */}
+                          {m.content && (
+                            <pre className="whitespace-pre-wrap">{m.content}</pre>
+                          )}
+                        </div>
                       ) : (
                         // Assistant messages with ReactMarkdown
                         <ReactMarkdown
