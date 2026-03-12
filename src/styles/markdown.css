@@ -14,7 +14,6 @@
 
 
 .markdown {
-  white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -23,7 +22,7 @@
 }
 
 /* ======================
-   HEADINGS (FULL FIX)
+   HEADINGS
    ====================== */
 .markdown h1,
 .markdown h2,
@@ -33,7 +32,7 @@
 .markdown h6 {
   font-weight: 600;
   line-height: 1.25;
-  margin: 0.8em 0 0.4em;
+  margin: 1em 0 0.8em;
 }
 
 .markdown h1 {
@@ -66,7 +65,7 @@
    PARAGRAPHS
    ====================== */
 .markdown p {
-  margin: 0.35em 0;
+  margin: 1em 0;
 }
 
 /* ======================
@@ -94,11 +93,11 @@
 }
 
 /* ======================
-   LISTS (FIXED GAPS)
+   LISTS
    ====================== */
 .markdown ul,
 .markdown ol {
-  margin: 0.35em 0;
+  margin: 1em 1em;
   padding-left: 1.25em;
   list-style-position: outside;
   white-space: normal;
@@ -122,7 +121,7 @@
   margin: 0;
 }
 
-/* Task lists (GFM) */
+/* Task lists */
 .markdown input[type="checkbox"] {
   margin-right: 0.4em;
   transform: translateY(1px);

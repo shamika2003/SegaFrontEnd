@@ -335,7 +335,6 @@ export default function AIInterface() {
         return;
       }
 
-
       // Streaming token
       if (msg.type === "token") {
         setIsSending(false);
@@ -483,14 +482,55 @@ export default function AIInterface() {
           const text = await res.text();
           console.error("Failed to fetch conversation:", text);
           setMessages([]);
-          return;
+          window.location.href = '/ai-interface';
         }
 
         const data = await res.json();
-        setMessages(data.messages || []);
+        console.log(data);
+        const formattedMessages = data.messages.map((msg: {
+          message_id: string;
+          role: "User" | "Assistant";
+          content: string;
+          uploads?: { name: string; file_url: string }[]
+        }) => ({
+          id: msg.message_id,
+          role: msg.role,
+          content: msg.content,
+          files: msg.uploads?.map(u => ({
+            type: "image",
+            name: u.name,
+            content: u.file_url
+          })),
+        }));
+
+
+
+        setMessages(formattedMessages);
+
+        // for (data.) {
+        //   const content = await fileToBase64(file);
+
+        //   files.push({
+        //     type: file.type.startsWith("image") ? "image" : "file",
+        //     name: file.name,
+        //     content
+        //   });
+        // }
+
+        // setMessages(prev => [
+        //   ...prev,
+        //   {
+        //     id: crypto.randomUUID(),
+        //     role: "User",
+        //     content: text,
+        //     files: files.length ? files : undefined,
+        //   },
+        // ]);
+
       } catch (err) {
         console.error("Error fetching conversation:", err);
         setMessages([]);
+        window.location.href = '/ai-interface';
       }
     };
     fetchHistory();
@@ -1033,17 +1073,17 @@ export default function AIInterface() {
                       }`}
                   >
                     <div
-                      className={`rounded-xl p-3 dark:text-white ${m.role === "User"
+                      className={`rounded-xl dark:text-white ${m.role === "User"
                         ? "max-w-2xl bg-blue-500/20 user-message"
-                        : "markdown"
+                        : "markdown w-full"
                         }`}
                     >
                       {m.role === "User" ? (
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2 p-4">
 
-                          {/*  Attachments */}
+                          {/* Attachments */}
                           {m.files && m.files.length > 0 && (
-                            <div className="flex flex-wrap gap-3">
+                            <div className="flex gap-3 overflow-x-auto">
                               {m.files.map((f, idx) =>
                                 f.type === "image" ? (
                                   // ---- Image preview ----
@@ -1051,7 +1091,8 @@ export default function AIInterface() {
                                     key={idx}
                                     src={f.content}
                                     alt={f.name}
-                                    className="max-w-xs rounded-lg shadow-sm"
+                                    // ← the magic line ↓
+                                    className="flex-[1_1_0] min-w-[80px] max-w-xs rounded-lg"
                                   />
                                 ) : (
                                   // ---- Generic file link ----
@@ -1061,7 +1102,6 @@ export default function AIInterface() {
                                     download={f.name}
                                     className="flex items-center gap-1 px-3 py-2 bg-gray-200/70 rounded-md hover:bg-gray-300"
                                   >
-                                    {/* a tiny file‑icon – you can replace it with any icon you like */}
                                     <span className="text-xl">📄</span>
                                     <span className="text-sm">{f.name}</span>
                                   </a>
@@ -1069,10 +1109,10 @@ export default function AIInterface() {
                               )}
                             </div>
                           )}
-                          
-                          {/* Text (if any) */}
+
+                          {/* Text */}
                           {m.content && (
-                            <pre className="whitespace-pre-wrap">{m.content}</pre>
+                            <pre className="flex justify-end whitespace-pre-wrap">{m.content}</pre>
                           )}
                         </div>
                       ) : (

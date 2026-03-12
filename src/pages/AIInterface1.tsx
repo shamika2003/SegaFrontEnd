@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeftFromLine,
   ArrowRightFromLine,
+  AudioLines,
+  Plus,
   Send,
   SquarePen,
   TextSearch
@@ -17,12 +19,19 @@ import { FcGoogle } from "react-icons/fc";
 import { useGoogleLogin } from "@react-oauth/google";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { useNavigate, useParams } from "react-router-dom";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 
 type ChatMessage = {
   id: string;
   role: "User" | "Assistant";
   content: string;
   streaming?: boolean;
+  files?: {
+    type: "image" | "file";
+    name: string;
+    content: string;
+  }[];
 };
 
 type User = {
@@ -37,6 +46,15 @@ type ChatList = {
   created_at: string;
 };
 
+type Preview = {
+  id: string;
+  name: string;
+  url?: string;
+};
+
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 export default function AIInterface() {
   const { conversationId: routeConversationId } = useParams();
   const navigate = useNavigate();
@@ -48,6 +66,8 @@ export default function AIInterface() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const typingTitlesRef = useRef(new Set<string>());
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const [chatList, setChatList] = useState<ChatList[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -62,6 +82,11 @@ export default function AIInterface() {
   const [isOpen, setIsOpen] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [emailValue, setEmailValue] = useState("");
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [fileName, setFileName] = useState('');
+  const [imageName, setImageName] = useState('');
+  const [previews, setPreviews] = useState<Preview[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // set user state
   const [user, setUser] = useState<User | null>(() => {
@@ -143,6 +168,7 @@ export default function AIInterface() {
   `;
     modalRef.current.style.opacity = "0";
 
+    // wait for animation to finish before unmount
     setTimeout(() => {
       setIsModalOpen(false);
     }, 280);
@@ -154,6 +180,10 @@ export default function AIInterface() {
     if (!el) return;
     el.style.height = "auto";
     el.style.height = el.scrollHeight + "px";
+  };
+
+  const handleClick = () => {
+    textareaRef.current?.focus();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -179,41 +209,74 @@ export default function AIInterface() {
       );
 
       if (index >= fullTitle.length) clearInterval(interval);
-    }, 50); // 50ms per character, adjust speed here
+    }, 10);
   };
 
-  const sendCurrentMessage = () => {
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const sendCurrentMessage = async () => {
     const el = textareaRef.current;
     if (!el || isSending) return;
 
     const text = el.value.trim();
-    if (!text) return;
+    if (!text && !fileName && !imageName) return;
 
     const token = window.__ACCESS_TOKEN__;
-    if (!token) {
-      console.warn("No access token – socket not connected");
-      return;
-    }
+    if (!token) return;
 
     ensureSocket();
 
-    setMessages((prev) => [
+
+    const files: { type: "image" | "file"; name: string; content: string }[] = [];
+
+    for (const file of selectedFiles) {
+      const content = await fileToBase64(file);
+
+      files.push({
+        type: file.type.startsWith("image") ? "image" : "file",
+        name: file.name,
+        content
+      });
+    }
+
+    const msgPayload = {
+      user_input: text,
+      conversation_id: conversationId,
+      response_mode: "text_stream",
+      files
+    };
+
+    setMessages(prev => [
       ...prev,
       {
         id: crypto.randomUUID(),
         role: "User",
         content: text,
+        files: files.length ? files : undefined,
       },
     ]);
 
-    sendMessage({
-      user_input: text,
-      conversation_id: conversationId, // can be null on first message
-    });
+    sendMessage(msgPayload);
+
+    console.log("FILES SENT:", files);
 
     setIsSending(true);
+    setSelectedFiles([]);
     el.value = "";
     autoResize();
+    setFileName('');
+    setImageName('');
+    setPreviews(prev => {
+      prev.forEach(p => p.url && URL.revokeObjectURL(p.url));
+      return [];
+    });
   };
 
   const ensureSocket = () => {
@@ -271,7 +334,6 @@ export default function AIInterface() {
 
         return;
       }
-
 
       // Streaming token
       if (msg.type === "token") {
@@ -337,7 +399,7 @@ export default function AIInterface() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/auth/check", {
+        const res = await fetch(`${API_BASE}/api/auth/check`, {
           method: "POST",
           credentials: "include",
           headers: {
@@ -355,7 +417,7 @@ export default function AIInterface() {
 
         if (data.access_token) {
           setAccessToken(data.access_token);
-          window.__ACCESS_TOKEN__ = data.access_token; // TEMP bridge
+          window.__ACCESS_TOKEN__ = data.access_token;
         }
 
         setAuthChecked(true);
@@ -373,7 +435,7 @@ export default function AIInterface() {
 
     const fetchPastChats = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/conversations_list", {
+        const res = await fetch(`${API_BASE}/api/conversations_list`, {
           headers: {
             "Authorization": `Bearer ${accessToken}`,
           },
@@ -405,7 +467,7 @@ export default function AIInterface() {
 
       try {
         const res = await fetch(
-          `http://localhost:8000/api/conversations/${routeConversationId}`,
+          `${API_BASE}/api/conversations/${routeConversationId}`,
           {
             method: "GET",
             headers: {
@@ -420,14 +482,66 @@ export default function AIInterface() {
           const text = await res.text();
           console.error("Failed to fetch conversation:", text);
           setMessages([]);
-          return;
+          window.location.href = '/ai-interface';
         }
 
         const data = await res.json();
-        setMessages(data.messages || []);
+        console.log(data);
+
+        // Make sure uploads is parsed from JSON string
+        const normalized = data.messages.map((item: any) => ({
+          ...item,
+          uploads: item.uploads ? JSON.parse(item.uploads) : [],
+        }));
+
+        // Inside your try block, after normalizing uploads
+        const grouped = new Map<string, ChatMessage>();
+
+        for (const item of normalized) {
+          if (!grouped.has(item.message_id)) {
+            grouped.set(item.message_id, {
+              id: crypto.randomUUID(),
+              role: item.role,
+              content: item.content,
+              files: item.uploads.length
+                ? item.uploads.map((f: any) => ({
+                  type: "image",
+                  name: f.name,
+                  content: f.file_ext, // replace with URL if available
+                }))
+                : undefined,
+            });
+          } else {
+            // If message exists, just add new files
+            const msg = grouped.get(item.message_id)!;
+            if (item.uploads.length) {
+              msg.files = [...(msg.files || []), ...item.uploads.map((f: any) => ({
+                type: "image",
+                name: f.name,
+                content: f.file_ext,
+              }))];
+            }
+          }
+        }
+
+        // Sort messages globally by creation time
+        const sortedMessages = Array.from(grouped.values()).sort((a, b) => {
+          const aItem = normalized.find(x => x.message_id === a.id) || normalized[0];
+          const bItem = normalized.find(x => x.message_id === b.id) || normalized[0];
+
+          const aTime = aItem?.message_created ? new Date(aItem.message_created).getTime() : 0;
+          const bTime = bItem?.message_created ? new Date(bItem.message_created).getTime() : 0;
+          return aTime - bTime;
+        });
+
+        // Update state
+        setMessages(sortedMessages);
+
+
       } catch (err) {
         console.error("Error fetching conversation:", err);
         setMessages([]);
+        window.location.href = '/ai-interface';
       }
     };
     fetchHistory();
@@ -460,7 +574,7 @@ export default function AIInterface() {
         body.accessToken = credentials.accessToken;
       }
 
-      const res = await fetch("http://localhost:8000/api/auth/login", {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -494,7 +608,7 @@ export default function AIInterface() {
 
   const fetchChatList = async (token: string) => {
     try {
-      const res = await fetch("http://localhost:8000/api/conversations_list", {
+      const res = await fetch(`${API_BASE}/api/conversations_list`, {
         headers: { Authorization: `Bearer ${token}` },
         credentials: "include",
       });
@@ -530,7 +644,7 @@ export default function AIInterface() {
   //sign out
   const signout = async () => {
     try {
-      await fetch("http://localhost:8000/api/auth/logout", {
+      await fetch(`${API_BASE}/api/auth/logout`, {
         method: "POST",
         credentials: "include", // IMPORTANT
       });
@@ -551,26 +665,16 @@ export default function AIInterface() {
   };
 
   // Scroll handling
-  useEffect(() => {
-    // Scroll ONLY when:
-    // - user sends a message
-    // - assistant message is first created
-    if (!isAssistantStreaming) {
-      bottomRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "end",
-      });
-    }
-  }, [messages.length]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
+    // true only if scrollbar already exists
     const overflow = el.scrollHeight > el.clientHeight + 1;
 
     setHasScroll(overflow);
-  }, [messages.length]); 
+  }, [messages.length]); // only when messages are added
 
   function getTextFromReactNode(children: React.ReactNode): string {
     if (typeof children === "string") return children;
@@ -580,6 +684,102 @@ export default function AIInterface() {
     }
     return "";
   }
+
+  function CodeBlock({
+    language,
+    codeText,
+  }: {
+    language: string;
+    codeText: string;
+  }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = async () => {
+      try {
+        await navigator.clipboard.writeText(codeText);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error("Copy failed:", err);
+      }
+    };
+
+    return (
+      <div className="code-block">
+        <div className="code-lang">
+          <span>{language.toUpperCase()}</span>
+          <button
+            onClick={handleCopy}
+            disabled={copied}
+            className="copy-btn"
+          >
+            {copied ? "Copied ✓" : "Copy"}
+          </button>
+        </div>
+        <pre>
+          <code className={`language-${language}`}>
+            {codeText}
+          </code>
+        </pre>
+      </div>
+    );
+  }
+
+
+  useEffect(() => {
+    if (!isAssistantStreaming) {
+      bottomRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    }
+  }, [messages.length]);
+
+  const makeId = () => Math.random().toString(36).substring(2, 9);
+
+  //  files
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+
+    setSelectedFiles(prev => [...prev, ...files]);
+
+    const newPreviews = files.map(f => ({
+      id: makeId(),
+      name: f.name
+    }));
+
+    setPreviews(prev => [...prev, ...newPreviews]);
+
+    e.target.value = "";
+    setPopupOpen(false);
+  };
+
+  // images
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+
+    setSelectedFiles(prev => [...prev, ...files]);
+
+    const newPreviews = files.map(img => ({
+      id: makeId(),
+      name: img.name,
+      url: URL.createObjectURL(img)
+    }));
+
+    setPreviews(prev => [...prev, ...newPreviews]);
+
+    e.target.value = "";
+    setPopupOpen(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      // component is going away → revoke every blob URL we created
+      previews.forEach(p => p.url && URL.revokeObjectURL(p.url));
+    };
+  }, [previews]);
 
   return (
     <main className="relative h-screen dark:bg-gradient-to-b from-[#0b0f14] via-[#070a0f] to-black">
@@ -785,7 +985,7 @@ export default function AIInterface() {
               ].map(({ label, icon: Icon, href }) => (
                 <button
                   key={label}
-                  onClick={() => href && (window.location.href = href)} // optional: navigate
+                  onClick={() => href && (window.location.href = href)}
                   className="group relative w-full px-3 py-2 rounded-lg flex items-center gap-3 text-sm
                   bg-gray-300/30 dark:bg-gray-900/50 hover:bg-gray-400/50 dark:hover:bg-gray-800 transition-colors"
                 >
@@ -807,6 +1007,27 @@ export default function AIInterface() {
                 </button>
               ))}
 
+              <button
+                onClick={() => { window.location.href = '/ai-interface-voice'; }}
+                className="group relative w-full px-3 py-2 rounded-lg flex items-center gap-3 text-sm
+                  animate-gradient opacity-80"
+              >
+                <AudioLines />
+                {/* Text (only when open) */}
+                {isOpen && <span className="truncate dark:text-white">Sega Voice</span>}
+
+                {/* Tooltip (only when closed) */}
+                {!isOpen && (
+                  <span
+                    className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap
+                   rounded-md px-3 py-1 text-xs bg-gray-900 text-white opacity-0 group-hover:opacity-100
+                   transition-opacity duration-200 z-50"
+                  >
+                    Sega Voice
+                  </span>
+                )}
+              </button>
+
             </div>
 
             <hr className="my-3 mx-2 border-gray-400/50 dark:border-white/10" />
@@ -824,8 +1045,9 @@ export default function AIInterface() {
                   <button
                     key={index}
                     onClick={() => navigate(`/ai-interface/c/${chat.id}`)}
-                    className="group relative w-full px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300
-                    hover:bg-gray-300 dark:hover:bg-gray-900 transition-colors flex items-center gap-3"
+                    className={`group relative w-full px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300
+                    hover:bg-gray-300 dark:hover:bg-gray-900 transition-colors flex items-center gap-3
+                    ${chat.id == conversationId ? "dark:bg-gray-900 bg-gray-300" : ""}`}
                   >
                     {/* Text */}
                     {isOpen && (
@@ -841,8 +1063,8 @@ export default function AIInterface() {
 
             <div
               ref={scrollRef}
-              className="flex-1 w-full overflow-x-auto h-full overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade">
-
+              className="flex-1 w-full overflow-x-auto h-full overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade"
+            >
               {messages.map((m, i) => {
                 const isLastAssistant =
                   m.role === "Assistant" && i === messages.length - 1;
@@ -853,67 +1075,124 @@ export default function AIInterface() {
                     style={{
                       minHeight: (() => {
                         if (!isLastAssistant) return "auto";
-
                         const el = scrollRef.current;
                         if (!el) return "auto";
-
                         return el.scrollHeight > el.clientHeight ? "54vh" : "auto";
                       })(),
                     }}
-                    className={`flex w-full ${m.role === "User" ? "justify-end" : "justify-start"}`}
+                    className={`flex w-full ${m.role === "User" ? "justify-end" : "justify-start"
+                      }`}
                   >
                     <div
-                      className={`rounded-xl p-3 dark:text-white 
-                        ${m.role === "User"
-                          ? "max-w-lg bg-blue-500/20 user-message"
-                          : "markdown"
+                      className={`rounded-xl p-3 dark:text-white ${m.role === "User"
+                        ? "max-w-2xl bg-blue-500/20 user-message"
+                        : "markdown"
                         }`}
                     >
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeHighlight]}
-                        components={{
-                          code({ className, children, ...props }) {
-                            const match = /language-(\w+)/.exec(className || "");
-                            const language = match?.[1];
-                            const isBlock = !!language;
+                      {m.role === "User" ? (
+                        <div className="flex flex-col gap-2">
 
-                            if (!isBlock) {
-                              return <code className="inline-code">{children}</code>;
-                            }
+                          {/*  Attachments */}
+                          {m.files && m.files.length > 0 && (
+                            <div className="flex flex-wrap gap-3">
+                              {m.files.map((f, idx) =>
+                                f.type === "image" ? (
+                                  // ---- Image preview ----
+                                  <img
+                                    key={idx}
+                                    src={f.content}
+                                    alt={f.name}
+                                    className="max-w-xs rounded-lg shadow-sm"
+                                  />
+                                ) : (
+                                  // ---- Generic file link ----
+                                  <a
+                                    key={idx}
+                                    href={f.content}
+                                    download={f.name}
+                                    className="flex items-center gap-1 px-3 py-2 bg-gray-200/70 rounded-md hover:bg-gray-300"
+                                  >
+                                    {/* a tiny file‑icon – you can replace it with any icon you like */}
+                                    <span className="text-xl">📄</span>
+                                    <span className="text-sm">{f.name}</span>
+                                  </a>
+                                )
+                              )}
+                            </div>
+                          )}
 
-                            const codeText = getTextFromReactNode(children).replace(/\n$/, "");
+                          {/* Text (if any) */}
+                          {m.content && (
+                            <pre className="whitespace-pre-wrap">{m.content}</pre>
+                          )}
+                        </div>
+                      ) : (
+                        // Assistant messages with ReactMarkdown
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeHighlight]}
+                          components={{
+                            img({ src, alt }) {
+                              return (
+                                <img
+                                  src={src}
+                                  alt={alt || "image"}
+                                  loading="lazy"
+                                  className="rounded-lg my-3 max-w-full"
+                                />
+                              );
+                            },
 
-                            const [copied, setCopied] = useState(false);
+                            a({ href, children }) {
+                              const isVideo = href?.match(/\.(mp4|webm|ogg)$/i);
+                              if (isVideo) {
+                                return (
+                                  <video
+                                    controls
+                                    className="rounded-lg my-3 max-w-full"
+                                  >
+                                    <source src={href} />
+                                  </video>
+                                );
+                              }
+                              return (
+                                <a
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer nofollow"
+                                  className="text-indigo-500 hover:underline"
+                                >
+                                  {children}
+                                </a>
+                              );
+                            },
 
-                            const handleCopy = async () => {
-                              await navigator.clipboard.writeText(codeText);
-                              setCopied(true);
-                              setTimeout(() => setCopied(false), 2000);
-                            };
+                            code({ className, children }) {
+                              const match = /language-(\w+)/.exec(className || "");
+                              const language = match?.[1];
 
-                            return (
-                              <div className="code-block">
-                                <div className="code-lang">
-                                  <span>{language.toUpperCase()}</span>
-                                  <button onClick={handleCopy} disabled={copied} className="copy-btn">
-                                    {copied ? "Copied ✓" : "Copy"}
-                                  </button>
-                                </div>
-                                <pre className={className}>
-                                  <code {...props}>{children}</code>
-                                </pre>
-                              </div>
-                            );
-                          },
-                        }}
+                              if (!language) {
+                                return (
+                                  <code className="inline-code">
+                                    {children}
+                                  </code>
+                                );
+                              }
 
+                              const codeText = getTextFromReactNode(children).replace(/\n$/, "");
 
-
-                      >
-                        {m.content}
-                      </ReactMarkdown>
-
+                              return (
+                                <CodeBlock
+                                  language={language}
+                                  codeText={codeText}
+                                />
+                              );
+                            },
+                          }}
+                        >
+                          {m.content}
+                        </ReactMarkdown>
+                      )}
                     </div>
                   </div>
                 );
@@ -928,9 +1207,8 @@ export default function AIInterface() {
               {hasScroll && (
                 <div
                   style={{
-                    height: isSending || isAssistantStreaming
-                      ? "60vh"
-                      : "12vh",
+                    height:
+                      isSending || isAssistantStreaming ? "60vh" : "12vh",
                     minHeight: "72px",
                   }}
                 />
@@ -942,22 +1220,115 @@ export default function AIInterface() {
 
             {/* Input bar */}
             <div className="absolute bottom-4 left-0 right-0 px-4 sm:px-8 lg:px-12 mb-2">
-              <div className="h-16 px-32 flex items-end">
+              <div className="h-16 px-28 flex items-end">
+
                 <div className="w-full flex items-end gap-3 bg-black/20 py-2 px-3 backdrop-blur rounded-3xl
                                 focus-within:ring-1 focus-within:ring-blue-500 focus-within:ring-opacity-50
-                                border border-white/10 transition">
+                                border border-white/10 transition"
+                  onClick={handleClick}>
 
-                  <textarea
-                    ref={textareaRef}
-                    rows={1}
-                    placeholder="Type a message..."
-                    className="flex-1 resize-none bg-transparent scroll-fade px-4 py-2 dark:text-white placeholder-gray-900 dark:placeholder-gray-400 outline-none max-h-40"
-                    onInput={autoResize}
-                    onKeyDown={handleKeyDown}
-                  />
+                  <div className="relative inline-block">
+                    <button
+                      onClick={() => setPopupOpen(!popupOpen)}
+                      className="dark:text-white px-2 py-2 rounded-full transition bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 disabled:opacity-50">
+                      <Plus
+                        className={`transition-transform duration-200 ${popupOpen ? "rotate-180" : "rotate-0"
+                          }`}
+                      />
+                    </button>
+
+                    {/* Popup */}
+                    {popupOpen && (
+                      <div className="absolute bottom-full mb-2 -translate-x-1/2 
+                        bg-white dark:bg-zinc-800/40
+                        shadow-lg rounded-lg p-2 w-40">
+
+                        <input
+                          type="file"
+                          multiple
+                          ref={fileInputRef}
+                          style={{ display: "none" }}
+                          onChange={handleFileSelect}
+                        />
+
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          ref={imageInputRef}
+                          style={{ display: "none" }}
+                          onChange={handleImageSelect}
+                        />
+
+                        <button
+                          className="text-sm w-full text-start p-2 hover:bg-black/10
+                            dark:hover:bg-white/10 dark:text-white rounded-lg"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          Upload file
+                        </button>
+                        <hr className="mb-1 mt-1" />
+                        <button
+                          className="text-sm w-full text-start p-2 hover:bg-black/10
+                            dark:hover:bg-white/10 dark:text-white rounded-lg"
+                          onClick={() => imageInputRef.current?.click()}
+                        >
+                          Upload image
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 items-center p-0 mb-0">
+                    {previews.length > 0 && (
+                      <div className="flex flex-wrap gap-2 rounded-lg w-full">
+                        {previews.map(p => (
+                          <div
+                            key={p.id}
+                            className="flex items-center gap-1 bg-black/20 rounded-md p-1"
+                          >
+                            {/* Image thumbnail or file icon */}
+                            {p.url ? (
+                              <img
+                                src={p.url}
+                                alt={p.name}
+                                className="h-10 w-10 object-cover rounded"
+                              />
+                            ) : (
+                              <span className="text-xl">📄</span>
+                            )}
+
+                            {/* File name */}
+                            <span className="max-w-xs text-sm text-white truncate">{p.name}</span>
+
+                            {/* Remove button */}
+                            <button
+                              type="button"
+                              className="ml-1 text-gray-300 hover:text-white"
+                              onClick={() => {
+                                if (p.url) URL.revokeObjectURL(p.url);
+                                setPreviews(prev => prev.filter(item => item.id !== p.id));
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <textarea
+                      ref={textareaRef}
+                      rows={1}
+                      placeholder="Type a message..."
+                      className="w-full resize-none bg-transparent scroll-fade px-4 py-2 pb-2 dark:text-white placeholder-gray-900 dark:placeholder-gray-400 outline-none max-h-40"
+                      onInput={autoResize}
+                      onKeyDown={handleKeyDown}
+                    />
+                  </div>
 
                   <button
-                    className=" dark:text-white px-2 py-2 rounded-full transition bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 disabled:opacity-50"
+                    className="dark:text-white px-2 py-2 rounded-full transition bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 disabled:opacity-50"
                     onClick={sendCurrentMessage}
                     disabled={isSending}
                   >
