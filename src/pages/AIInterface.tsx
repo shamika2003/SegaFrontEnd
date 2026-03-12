@@ -486,7 +486,47 @@ export default function AIInterface() {
         }
 
         const data = await res.json();
-        setMessages(data.messages || []);
+        console.log(data);
+        const formattedMessages = data.messages.map((msg: {
+          message_id: string;
+          role: "User" | "Assistant";
+          content: string;
+          uploads?: { name: string; file_url: string }[]
+        }) => ({
+          id: msg.message_id,
+          role: msg.role,
+          content: msg.content,
+          files: msg.uploads?.map(u => ({
+            type: "image",
+            name: u.name,
+            content: u.file_url
+          })),
+        }));
+
+
+
+        setMessages(formattedMessages);
+
+        // for (data.) {
+        //   const content = await fileToBase64(file);
+
+        //   files.push({
+        //     type: file.type.startsWith("image") ? "image" : "file",
+        //     name: file.name,
+        //     content
+        //   });
+        // }
+
+        // setMessages(prev => [
+        //   ...prev,
+        //   {
+        //     id: crypto.randomUUID(),
+        //     role: "User",
+        //     content: text,
+        //     files: files.length ? files : undefined,
+        //   },
+        // ]);
+
       } catch (err) {
         console.error("Error fetching conversation:", err);
         setMessages([]);
@@ -1033,9 +1073,9 @@ export default function AIInterface() {
                       }`}
                   >
                     <div
-                      className={`rounded-xl dark:text-white ${m.role === "User"
+                      className={`rounded-xl p-3 dark:text-white ${m.role === "User"
                         ? "max-w-2xl bg-blue-500/20 user-message"
-                        : "markdown w-full"
+                        : "markdown"
                         }`}
                     >
                       {m.role === "User" ? (
@@ -1069,8 +1109,8 @@ export default function AIInterface() {
                               )}
                             </div>
                           )}
-                          
-                          {/* Text (if any) */}
+
+                          {/* Text */}
                           {m.content && (
                             <pre className="flex justify-end whitespace-pre-wrap">{m.content}</pre>
                           )}
