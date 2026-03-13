@@ -31,8 +31,8 @@
 .markdown h5,
 .markdown h6 {
   font-weight: 600;
-  line-height: 1.25;
-  margin: 1em 0 0.8em;
+  line-height: 1.5;
+  margin: 1.5em 0 1.2em;
 }
 
 .markdown h1 {
@@ -131,7 +131,7 @@
    BLOCKQUOTE
    ====================== */
 .markdown blockquote {
-  margin: 0.5em 0;
+  margin: 0.5em 0.5em;
   padding-left: 0.75em;
   border-left: 3px solid rgba(0, 0, 0, 0.2);
   color: #555;
@@ -149,7 +149,7 @@
 .markdown hr {
   border: none;
   border-top: 1px solid rgba(0, 0, 0, 0.2);
-  margin: 0.75em 0;
+  margin: 1.2em 0;
 }
 
 .dark .markdown hr {
@@ -157,14 +157,18 @@
 }
 
 /* ======================
-   TABLES (SCROLL SAFE)
+   TABLES
    ====================== */
+
+.markdown .table-scroll{
+  width: 90%;
+  position: relative;
+}
+
 .markdown table {
-  display: block;
-  max-width: 100%;
-  overflow-x: auto;
+  min-width: 100%;          /* at least parent width */
+  width: max-content;       /* expand if content needs more */
   border-collapse: collapse;
-  table-layout: fixed;
   margin: 0.5em 0;
 }
 
@@ -174,7 +178,8 @@
   padding: 0.4em 0.75em;
   text-align: left;
   font-size: 0.9rem;
-  white-space: normal;
+
+  white-space: nowrap;      /* prevent breaking */
 }
 
 .markdown th {

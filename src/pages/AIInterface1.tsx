@@ -186,6 +186,14 @@ export default function AIInterface() {
     textareaRef.current?.focus();
   };
 
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (el) {
+      el.focus();
+      el.selectionStart = el.selectionEnd = el.value.length;
+    }
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -295,32 +303,31 @@ export default function AIInterface() {
           c => c.id === msg.conversation_id
         );
 
-        if (exists) {
-          console.log("exists");
+        if (msg.title) {
+          if (exists) {
+            console.log("exists");
 
-          // Only update title if actually different
-          if (msg.title && msg.title !== exists.title) {
             if (!typingTitlesRef.current.has(msg.conversation_id)) {
               typingTitlesRef.current.add(msg.conversation_id);
               typeChatTitle(msg.conversation_id, msg.title ?? "Untitled");
             }
-          }
 
-        } else {
-          console.log("new");
+          } else {
+            console.log("new");
 
-          setChatList(prev => [
-            {
-              id: msg.conversation_id,
-              title: "",
-              created_at: new Date().toISOString(),
-            },
-            ...prev,
-          ]);
+            setChatList(prev => [
+              {
+                id: msg.conversation_id,
+                title: "",
+                created_at: new Date().toISOString(),
+              },
+              ...prev,
+            ]);
 
-          if (!typingTitlesRef.current.has(msg.conversation_id)) {
-            typingTitlesRef.current.add(msg.conversation_id);
-            typeChatTitle(msg.conversation_id, msg.title ?? "Untitled");
+            if (!typingTitlesRef.current.has(msg.conversation_id)) {
+              typingTitlesRef.current.add(msg.conversation_id);
+              typeChatTitle(msg.conversation_id, msg.title ?? "Untitled");
+            }
           }
         }
 
@@ -334,6 +341,7 @@ export default function AIInterface() {
 
         return;
       }
+
 
       // Streaming token
       if (msg.type === "token") {
@@ -486,57 +494,24 @@ export default function AIInterface() {
         }
 
         const data = await res.json();
-        console.log(data);
 
-        // Make sure uploads is parsed from JSON string
-        const normalized = data.messages.map((item: any) => ({
-          ...item,
-          uploads: item.uploads ? JSON.parse(item.uploads) : [],
+        const formattedMessages = data.messages.map((msg: {
+          message_id: string;
+          role: "User" | "Assistant";
+          content: string;
+          uploads?: { name: string; file_url: string }[]
+        }) => ({
+          id: msg.message_id,
+          role: msg.role,
+          content: msg.content,
+          files: msg.uploads?.map(u => ({
+            type: "image",
+            name: u.name,
+            content: u.file_url
+          })),
         }));
 
-        // Inside your try block, after normalizing uploads
-        const grouped = new Map<string, ChatMessage>();
-
-        for (const item of normalized) {
-          if (!grouped.has(item.message_id)) {
-            grouped.set(item.message_id, {
-              id: crypto.randomUUID(),
-              role: item.role,
-              content: item.content,
-              files: item.uploads.length
-                ? item.uploads.map((f: any) => ({
-                  type: "image",
-                  name: f.name,
-                  content: f.file_ext, // replace with URL if available
-                }))
-                : undefined,
-            });
-          } else {
-            // If message exists, just add new files
-            const msg = grouped.get(item.message_id)!;
-            if (item.uploads.length) {
-              msg.files = [...(msg.files || []), ...item.uploads.map((f: any) => ({
-                type: "image",
-                name: f.name,
-                content: f.file_ext,
-              }))];
-            }
-          }
-        }
-
-        // Sort messages globally by creation time
-        const sortedMessages = Array.from(grouped.values()).sort((a, b) => {
-          const aItem = normalized.find(x => x.message_id === a.id) || normalized[0];
-          const bItem = normalized.find(x => x.message_id === b.id) || normalized[0];
-
-          const aTime = aItem?.message_created ? new Date(aItem.message_created).getTime() : 0;
-          const bTime = bItem?.message_created ? new Date(bItem.message_created).getTime() : 0;
-          return aTime - bTime;
-        });
-
-        // Update state
-        setMessages(sortedMessages);
-
+        setMessages(formattedMessages);
 
       } catch (err) {
         console.error("Error fetching conversation:", err);
@@ -1059,11 +1034,15 @@ export default function AIInterface() {
             </div>
           </div>
 
+          <div className="bg-red-500 h-full w-full ">
+            d
+          </div>
+
           <div className="h-full w-full relative border border-white/10 flex flex-col">
 
             <div
               ref={scrollRef}
-              className="flex-1 w-full overflow-x-auto h-full overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade"
+              className="flex-1 w-full overflow-x-hidden h-full overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade"
             >
               {messages.map((m, i) => {
                 const isLastAssistant =
@@ -1086,15 +1065,15 @@ export default function AIInterface() {
                     <div
                       className={`rounded-xl p-3 dark:text-white ${m.role === "User"
                         ? "max-w-2xl bg-blue-500/20 user-message"
-                        : "markdown"
+                        : "markdown w-full"
                         }`}
                     >
                       {m.role === "User" ? (
                         <div className="flex flex-col gap-2">
 
-                          {/*  Attachments */}
+                          {/* Attachments */}
                           {m.files && m.files.length > 0 && (
-                            <div className="flex flex-wrap gap-3">
+                            <div className="flex gap-3 overflow-x-auto">
                               {m.files.map((f, idx) =>
                                 f.type === "image" ? (
                                   // ---- Image preview ----
@@ -1102,7 +1081,8 @@ export default function AIInterface() {
                                     key={idx}
                                     src={f.content}
                                     alt={f.name}
-                                    className="max-w-xs rounded-lg shadow-sm"
+                                    // ← the magic line ↓
+                                    className="flex-[1_1_0] min-w-[80px] max-w-xs rounded-lg"
                                   />
                                 ) : (
                                   // ---- Generic file link ----
@@ -1112,7 +1092,6 @@ export default function AIInterface() {
                                     download={f.name}
                                     className="flex items-center gap-1 px-3 py-2 bg-gray-200/70 rounded-md hover:bg-gray-300"
                                   >
-                                    {/* a tiny file‑icon – you can replace it with any icon you like */}
                                     <span className="text-xl">📄</span>
                                     <span className="text-sm">{f.name}</span>
                                   </a>
@@ -1121,9 +1100,9 @@ export default function AIInterface() {
                             </div>
                           )}
 
-                          {/* Text (if any) */}
+                          {/* Text */}
                           {m.content && (
-                            <pre className="whitespace-pre-wrap">{m.content}</pre>
+                            <pre className="flex justify-end whitespace-pre-wrap">{m.content}</pre>
                           )}
                         </div>
                       ) : (
@@ -1140,6 +1119,14 @@ export default function AIInterface() {
                                   loading="lazy"
                                   className="rounded-lg my-3 max-w-full"
                                 />
+                              );
+                            },
+
+                            table({ children }) {
+                              return (
+                                <div className="table-scroll">
+                                  <table>{children}</table>
+                                </div>
                               );
                             },
 

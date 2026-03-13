@@ -186,6 +186,14 @@ export default function AIInterface() {
     textareaRef.current?.focus();
   };
 
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (el) {
+      el.focus();
+      el.selectionStart = el.selectionEnd = el.value.length;
+    }
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -295,32 +303,31 @@ export default function AIInterface() {
           c => c.id === msg.conversation_id
         );
 
-        if (exists) {
-          console.log("exists");
+        if (msg.title) {
+          if (exists) {
+            console.log("exists");
 
-          // Only update title if actually different
-          if (msg.title && msg.title !== exists.title) {
             if (!typingTitlesRef.current.has(msg.conversation_id)) {
               typingTitlesRef.current.add(msg.conversation_id);
               typeChatTitle(msg.conversation_id, msg.title ?? "Untitled");
             }
-          }
 
-        } else {
-          console.log("new");
+          } else {
+            console.log("new");
 
-          setChatList(prev => [
-            {
-              id: msg.conversation_id,
-              title: "",
-              created_at: new Date().toISOString(),
-            },
-            ...prev,
-          ]);
+            setChatList(prev => [
+              {
+                id: msg.conversation_id,
+                title: "",
+                created_at: new Date().toISOString(),
+              },
+              ...prev,
+            ]);
 
-          if (!typingTitlesRef.current.has(msg.conversation_id)) {
-            typingTitlesRef.current.add(msg.conversation_id);
-            typeChatTitle(msg.conversation_id, msg.title ?? "Untitled");
+            if (!typingTitlesRef.current.has(msg.conversation_id)) {
+              typingTitlesRef.current.add(msg.conversation_id);
+              typeChatTitle(msg.conversation_id, msg.title ?? "Untitled");
+            }
           }
         }
 
@@ -334,6 +341,7 @@ export default function AIInterface() {
 
         return;
       }
+
 
       // Streaming token
       if (msg.type === "token") {
@@ -486,7 +494,7 @@ export default function AIInterface() {
         }
 
         const data = await res.json();
-        console.log(data);
+
         const formattedMessages = data.messages.map((msg: {
           message_id: string;
           role: "User" | "Assistant";
@@ -503,29 +511,7 @@ export default function AIInterface() {
           })),
         }));
 
-
-
         setMessages(formattedMessages);
-
-        // for (data.) {
-        //   const content = await fileToBase64(file);
-
-        //   files.push({
-        //     type: file.type.startsWith("image") ? "image" : "file",
-        //     name: file.name,
-        //     content
-        //   });
-        // }
-
-        // setMessages(prev => [
-        //   ...prev,
-        //   {
-        //     id: crypto.randomUUID(),
-        //     role: "User",
-        //     content: text,
-        //     files: files.length ? files : undefined,
-        //   },
-        // ]);
 
       } catch (err) {
         console.error("Error fetching conversation:", err);
@@ -1052,7 +1038,7 @@ export default function AIInterface() {
 
             <div
               ref={scrollRef}
-              className="flex-1 w-full overflow-x-auto h-full overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade"
+              className="flex-1 w-full overflow-x-hidden h-full overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade"
             >
               {messages.map((m, i) => {
                 const isLastAssistant =
@@ -1075,11 +1061,11 @@ export default function AIInterface() {
                     <div
                       className={`rounded-xl p-3 dark:text-white ${m.role === "User"
                         ? "max-w-2xl bg-blue-500/20 user-message"
-                        : "markdown"
+                        : "markdown w-full"
                         }`}
                     >
                       {m.role === "User" ? (
-                        <div className="flex flex-col gap-2 p-4">
+                        <div className="flex flex-col gap-2">
 
                           {/* Attachments */}
                           {m.files && m.files.length > 0 && (
@@ -1129,6 +1115,14 @@ export default function AIInterface() {
                                   loading="lazy"
                                   className="rounded-lg my-3 max-w-full"
                                 />
+                              );
+                            },
+
+                            table({ children }) {
+                              return (
+                                <div className="table-scroll">
+                                  <table>{children}</table>
+                                </div>
                               );
                             },
 
