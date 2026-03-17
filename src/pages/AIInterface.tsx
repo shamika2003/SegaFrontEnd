@@ -490,7 +490,7 @@ export default function AIInterface() {
           const text = await res.text();
           console.error("Failed to fetch conversation:", text);
           setMessages([]);
-          window.location.href = '/ai-interface';
+          window.location.href = '/ai-inteface';
         }
 
         const data = await res.json();
@@ -1034,11 +1034,11 @@ export default function AIInterface() {
             </div>
           </div>
 
-          <div className="h-full w-full relative border border-white/10 flex flex-col">
+          <div className="h-full w-full min-w-0 relative border border-white/10 flex flex-col">
 
             <div
               ref={scrollRef}
-              className="flex-1 w-full overflow-x-hidden h-full overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade"
+              className="flex-1 min-w-0 w-full overflow-x-hidden overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade"
             >
               {messages.map((m, i) => {
                 const isLastAssistant =

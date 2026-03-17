@@ -161,13 +161,16 @@
    ====================== */
 
 .markdown .table-scroll{
-  width: 90%;
-  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: block;
 }
 
 .markdown table {
-  min-width: 100%;          /* at least parent width */
-  width: max-content;       /* expand if content needs more */
+  width: max-content;   /* table keeps natural width */
+  min-width: 100%;      /* fill container when small */
   border-collapse: collapse;
   margin: 0.5em 0;
 }
