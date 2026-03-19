@@ -169,8 +169,8 @@
 }
 
 .markdown table {
-  max-width: 100%;
-  width: max-content;
+  width: max-content;   /* table keeps natural width */
+  min-width: 100%;      /* fill container when small */
   border-collapse: collapse;
   margin: 0.5em 0;
 }

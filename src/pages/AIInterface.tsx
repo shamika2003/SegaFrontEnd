@@ -490,7 +490,7 @@ export default function AIInterface() {
           const text = await res.text();
           console.error("Failed to fetch conversation:", text);
           setMessages([]);
-          window.location.href = '/ai-interface';
+          window.location.href = '/ai-inteface';
         }
 
         const data = await res.json();
