@@ -775,8 +775,7 @@ export default function AIInterface() {
 
       <section className="h-screen relative z-10 pt-16 overflow-hidden">
         <div className="flex w-full h-full">
-          <div
-            className={`h-full flex flex-col flex-shrink-0 bg-black/10 dark:bg-black/40 border-r border-gray-300 dark:border-white/10 
+          <div className={`h-full flex flex-col flex-shrink-0 bg-black/10 dark:bg-black/40 border-r border-gray-300 dark:border-white/10 
               transition-[width] duration-300 ease-in-out ${isOpen ? "w-[250px]" : "w-14"}`}
           >
             {/* Header / Toggle */}
@@ -1034,11 +1033,11 @@ export default function AIInterface() {
             </div>
           </div>
 
-          <div className="h-full w-full relative border border-white/10 flex flex-col">
+          <div className="h-full w-full min-w-0 relative border border-white/10 flex flex-col">
 
             <div
               ref={scrollRef}
-              className="flex-1 w-full overflow-x-hidden h-full overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade"
+              className="flex-1 min-w-0 w-full overflow-x-hidden overflow-y-auto px-12 py-4 space-y-4 mb-6 scroll-fade"
             >
               {messages.map((m, i) => {
                 const isLastAssistant =

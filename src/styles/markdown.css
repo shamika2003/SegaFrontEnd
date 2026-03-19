@@ -46,7 +46,7 @@
 .markdown h3 {
   font-size: 1.2rem;
 }
- 
+
 .markdown h4 {
   font-size: 1.05rem;
 }
@@ -160,14 +160,17 @@
    TABLES
    ====================== */
 
-.markdown .table-scroll{
-  width: 90%;
-  position: relative;
+.markdown .table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: block;
 }
 
 .markdown table {
-  min-width: 100%;          /* at least parent width */
-  width: max-content;       /* expand if content needs more */
+  max-width: 100%;
+  width: max-content;
   border-collapse: collapse;
   margin: 0.5em 0;
 }
@@ -178,8 +181,7 @@
   padding: 0.4em 0.75em;
   text-align: left;
   font-size: 0.9rem;
-
-  white-space: nowrap;      /* prevent breaking */
+  white-space: nowrap;
 }
 
 .markdown th {
@@ -222,11 +224,13 @@
 .markdown pre {
   background-color: rgba(0, 0, 0, 0.233);
   border-radius: 6px;
-  white-space: pre-wrap;
-  overflow-x: auto;
-  margin: 0.5em 0;
+  margin: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.9rem;
+
+  overflow: auto;
+  max-height: 400px;
+  /* important */
 }
 
 .dark .markdown pre {
@@ -236,6 +240,8 @@
 /* wrapper */
 .code-block {
   position: relative;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 /* language label */
@@ -245,10 +251,19 @@
   letter-spacing: 0.05em;
   padding: 6px 14px;
   border-radius: 6px 6px 0 0;
+
   background-color: rgba(28, 75, 231, 0.233);
+
   display: flex;
-  font-family: Arial, Helvetica, sans-serif;
   justify-content: space-between;
+  align-items: center;
+
+  position: sticky;
+  top: 0;
+
+  z-index: 2;
+
+  backdrop-filter: blur(6px);
 }
 
 /* copy button */
@@ -268,7 +283,9 @@
 .code-block pre {
   background-color: rgba(0, 0, 0, 0);
   border-radius: 0 0 6px 6px !important;
-  padding: 6px 16px;
+  padding: 10px 16px;
+  scrollbar-width: thin;
+
 }
 
 .dark .code-block pre {
