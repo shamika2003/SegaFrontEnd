@@ -44,8 +44,8 @@ export default function Navbar() {
   };
 
   return (
-    <Disclosure as="nav" className="fixed top-0 left-0 w-full z-50 backdrop-blur-md dark:bg-black/40 border-b border-white/5">
-      <div className="relative h-16 flex justify-between items-center p-3 border-b border-cyan-400/10 shadow-[0_0_1px_rgba(34,211,238,0.1)]">
+    <Disclosure as="nav" className="fixed top-0 left-0 w-full backdrop-blur-md dark:bg-black/40 border-b border-white/5">
+      <div className="relative h-16 flex justify-between items-center p-3">
 
         <div
           aria-hidden

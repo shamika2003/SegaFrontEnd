@@ -12,8 +12,6 @@ import { connectSocket, disconnectSocket, sendMessage } from "../API/Connection"
 import Navbar from "../components/layout/Navbar";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
-import "highlight.js/styles/github.css";
 import TypingIndicator from "../components/ui/TypingIndicator";
 import { FcGoogle } from "react-icons/fc";
 import { useGoogleLogin } from "@react-oauth/google";
@@ -21,6 +19,17 @@ import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { useNavigate, useParams } from "react-router-dom";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
+// @ts-ignore
+// import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+// @ts-ignore
+// import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+// @ts-ignore
+// import { solarizedlight } from "react-syntax-highlighter/dist/esm/styles/prism";
+
+// @ts-ignore
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+// @ts-ignore
+import { dracula  } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 type ChatMessage = {
   id: string;
@@ -680,25 +689,84 @@ export default function AIInterface() {
     };
 
     return (
-      <div className="code-block">
-        <div className="code-lang">
-          <span>{language.toUpperCase()}</span>
+      <div className="code-wrapper">
+
+        <div className="code-header ">
+          <span className="code-lang">{language}</span>
+
           <button
             onClick={handleCopy}
-            disabled={copied}
             className="copy-btn"
           >
             {copied ? "Copied ✓" : "Copy"}
           </button>
         </div>
-        <pre>
-          <code className={`language-${language}`}>
-            {codeText}
-          </code>
-        </pre>
+
+        <SyntaxHighlighter
+          language={language}
+          style={dracula }
+          showLineNumbers
+          wrapLongLines
+          customStyle={{
+            margin: 0,
+            padding: "16px",
+            background: "transparent"
+          }}
+        >
+          {codeText}
+        </SyntaxHighlighter>
+
       </div>
     );
   }
+
+  // function CodeBlock({
+  //   language,
+  //   codeText,
+  // }: {
+  //   language: string;
+  //   codeText: string;
+  // }) {
+  //   const [copied, setCopied] = useState(false);
+
+  //   const handleCopy = async () => {
+  //     try {
+  //       await navigator.clipboard.writeText(codeText);
+  //       setCopied(true);
+  //       setTimeout(() => setCopied(false), 2000);
+  //     } catch (err) {
+  //       console.error("Copy failed:", err);
+  //     }
+  //   };
+
+  //   return (
+  //     <div className="code-block">
+  //       <div className="code-lang">
+  //         <span>{language.toUpperCase()}</span>
+  //         <button onClick={handleCopy} disabled={copied} className="copy-btn">
+  //           {copied ? "Copied ✓" : "Copy"}
+  //         </button>
+  //       </div>
+
+  //       <SyntaxHighlighter
+  //         language={language}
+  //         style={oneDark}   // or okaidia if you import that theme
+  //         PreTag="div"
+  //         customStyle={{
+  //         }}
+  //         codeTagProps={{
+  //           style: {
+
+  //           },
+  //         }}
+  //         wrapLongLines
+  //         showLineNumbers
+  //       >
+  //         {codeText}
+  //       </SyntaxHighlighter>
+  //     </div>
+  //   );
+  // }
 
 
   useEffect(() => {
@@ -757,7 +825,7 @@ export default function AIInterface() {
   }, [previews]);
 
   return (
-    <main className="relative h-screen dark:bg-gradient-to-b from-[#0b0f14] via-[#070a0f] to-black">
+    <main className="relative h-screen flex flex-col pt-16 dark:bg-gradient-to-b from-[#0b0f14] via-[#070a0f] to-black">
 
       {isLoading && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -773,7 +841,7 @@ export default function AIInterface() {
 
       <Navbar />
 
-      <section className="h-screen relative z-10 pt-16 overflow-hidden">
+      <section className="flex-1 relative overflow-hidden">
         <div className="flex w-full h-full">
           <div className={`h-full flex flex-col flex-shrink-0 bg-black/10 dark:bg-black/40 border-r border-gray-300 dark:border-white/10 
               transition-[width] duration-300 ease-in-out ${isOpen ? "w-[250px]" : "w-14"}`}
@@ -1033,7 +1101,7 @@ export default function AIInterface() {
             </div>
           </div>
 
-          <div className="h-full w-full min-w-0 relative border border-white/10 flex flex-col">
+          <div className="h-full w-full min-w-0 relative border border-white/10 flex justify-center">
 
             <div
               ref={scrollRef}
@@ -1104,7 +1172,7 @@ export default function AIInterface() {
                         // Assistant messages with ReactMarkdown
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
-                          rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeHighlight]}
+                          rehypePlugins={[rehypeRaw, rehypeSanitize]}
                           components={{
                             img({ src, alt }) {
                               return (
@@ -1149,13 +1217,13 @@ export default function AIInterface() {
                               );
                             },
 
-                            code({ className, children }) {
+                            code({ className, children, ...props }) {
                               const match = /language-(\w+)/.exec(className || "");
                               const language = match?.[1];
 
                               if (!language) {
                                 return (
-                                  <code className="inline-code">
+                                  <code className="inline-code" {...props}>
                                     {children}
                                   </code>
                                 );
@@ -1163,13 +1231,8 @@ export default function AIInterface() {
 
                               const codeText = getTextFromReactNode(children).replace(/\n$/, "");
 
-                              return (
-                                <CodeBlock
-                                  language={language}
-                                  codeText={codeText}
-                                />
-                              );
-                            },
+                              return <CodeBlock language={language} codeText={codeText} />;
+                            }
                           }}
                         >
                           {m.content}
@@ -1201,123 +1264,118 @@ export default function AIInterface() {
             </div>
 
             {/* Input bar */}
-            <div className="absolute bottom-4 left-0 right-0 px-4 sm:px-8 lg:px-12 mb-2">
-              <div className="h-16 px-28 flex items-end">
-
-                <div className="w-full flex items-end gap-3 bg-black/20 py-2 px-3 backdrop-blur rounded-3xl
+            <div className="absolute bottom-4 w-3/4 flex items-end gap-3 bg-black/20 py-2 px-3 backdrop-blur rounded-3xl
                                 focus-within:ring-1 focus-within:ring-blue-500 focus-within:ring-opacity-50
                                 border border-white/10 transition"
-                  onClick={handleClick}>
+              onClick={handleClick}>
 
-                  <div className="relative inline-block">
-                    <button
-                      onClick={() => setPopupOpen(!popupOpen)}
-                      className="dark:text-white px-2 py-2 rounded-full transition bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 disabled:opacity-50">
-                      <Plus
-                        className={`transition-transform duration-200 ${popupOpen ? "rotate-180" : "rotate-0"
-                          }`}
-                      />
-                    </button>
+              <div className="relative inline-block">
+                <button
+                  onClick={() => setPopupOpen(!popupOpen)}
+                  className="dark:text-white px-2 py-2 rounded-full transition bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 disabled:opacity-50">
+                  <Plus
+                    className={`transition-transform duration-200 ${popupOpen ? "rotate-180" : "rotate-0"
+                      }`}
+                  />
+                </button>
 
-                    {/* Popup */}
-                    {popupOpen && (
-                      <div className="absolute bottom-full mb-2 -translate-x-1/2 
+                {/* Popup */}
+                {popupOpen && (
+                  <div className="absolute bottom-full mb-2 -translate-x-1/2 
                         bg-white dark:bg-zinc-800/40
                         shadow-lg rounded-lg p-2 w-40">
 
-                        <input
-                          type="file"
-                          multiple
-                          ref={fileInputRef}
-                          style={{ display: "none" }}
-                          onChange={handleFileSelect}
-                        />
-
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          ref={imageInputRef}
-                          style={{ display: "none" }}
-                          onChange={handleImageSelect}
-                        />
-
-                        <button
-                          className="text-sm w-full text-start p-2 hover:bg-black/10
-                            dark:hover:bg-white/10 dark:text-white rounded-lg"
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          Upload file
-                        </button>
-                        <hr className="mb-1 mt-1" />
-                        <button
-                          className="text-sm w-full text-start p-2 hover:bg-black/10
-                            dark:hover:bg-white/10 dark:text-white rounded-lg"
-                          onClick={() => imageInputRef.current?.click()}
-                        >
-                          Upload image
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 items-center p-0 mb-0">
-                    {previews.length > 0 && (
-                      <div className="flex flex-wrap gap-2 rounded-lg w-full">
-                        {previews.map(p => (
-                          <div
-                            key={p.id}
-                            className="flex items-center gap-1 bg-black/20 rounded-md p-1"
-                          >
-                            {/* Image thumbnail or file icon */}
-                            {p.url ? (
-                              <img
-                                src={p.url}
-                                alt={p.name}
-                                className="h-10 w-10 object-cover rounded"
-                              />
-                            ) : (
-                              <span className="text-xl">📄</span>
-                            )}
-
-                            {/* File name */}
-                            <span className="max-w-xs text-sm text-white truncate">{p.name}</span>
-
-                            {/* Remove button */}
-                            <button
-                              type="button"
-                              className="ml-1 text-gray-300 hover:text-white"
-                              onClick={() => {
-                                if (p.url) URL.revokeObjectURL(p.url);
-                                setPreviews(prev => prev.filter(item => item.id !== p.id));
-                              }}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <textarea
-                      ref={textareaRef}
-                      rows={1}
-                      placeholder="Type a message..."
-                      className="w-full resize-none bg-transparent scroll-fade px-4 py-2 pb-2 dark:text-white placeholder-gray-900 dark:placeholder-gray-400 outline-none max-h-40"
-                      onInput={autoResize}
-                      onKeyDown={handleKeyDown}
+                    <input
+                      type="file"
+                      multiple
+                      ref={fileInputRef}
+                      style={{ display: "none" }}
+                      onChange={handleFileSelect}
                     />
-                  </div>
 
-                  <button
-                    className="dark:text-white px-2 py-2 rounded-full transition bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 disabled:opacity-50"
-                    onClick={sendCurrentMessage}
-                    disabled={isSending}
-                  >
-                    <Send />
-                  </button>
-                </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      ref={imageInputRef}
+                      style={{ display: "none" }}
+                      onChange={handleImageSelect}
+                    />
+
+                    <button
+                      className="text-sm w-full text-start p-2 hover:bg-black/10
+                            dark:hover:bg-white/10 dark:text-white rounded-lg"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Upload file
+                    </button>
+                    <hr className="mb-1 mt-1" />
+                    <button
+                      className="text-sm w-full text-start p-2 hover:bg-black/10
+                            dark:hover:bg-white/10 dark:text-white rounded-lg"
+                      onClick={() => imageInputRef.current?.click()}
+                    >
+                      Upload image
+                    </button>
+                  </div>
+                )}
               </div>
+
+              <div className="flex-1 items-center p-0 mb-0">
+                {previews.length > 0 && (
+                  <div className="flex flex-wrap gap-2 rounded-lg w-full">
+                    {previews.map(p => (
+                      <div
+                        key={p.id}
+                        className="flex items-center gap-1 bg-black/20 rounded-md p-1"
+                      >
+                        {/* Image thumbnail or file icon */}
+                        {p.url ? (
+                          <img
+                            src={p.url}
+                            alt={p.name}
+                            className="h-10 w-10 object-cover rounded"
+                          />
+                        ) : (
+                          <span className="text-xl">📄</span>
+                        )}
+
+                        {/* File name */}
+                        <span className="max-w-xs text-sm text-white truncate">{p.name}</span>
+
+                        {/* Remove button */}
+                        <button
+                          type="button"
+                          className="ml-1 text-gray-300 hover:text-white"
+                          onClick={() => {
+                            if (p.url) URL.revokeObjectURL(p.url);
+                            setPreviews(prev => prev.filter(item => item.id !== p.id));
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  placeholder="Type a message..."
+                  className="w-full resize-none bg-transparent scroll-fade px-4 py-2 pb-2 dark:text-white placeholder-gray-900 dark:placeholder-gray-400 outline-none max-h-40"
+                  onInput={autoResize}
+                  onKeyDown={handleKeyDown}
+                />
+              </div>
+
+              <button
+                className="dark:text-white px-2 py-2 rounded-full transition bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 disabled:opacity-50"
+                onClick={sendCurrentMessage}
+                disabled={isSending}
+              >
+                <Send />
+              </button>
             </div>
           </div>
         </div>
