@@ -4,10 +4,10 @@ import AnimatedGradientBlob from "../components/ui/AnimatedGradientBlob";
 
 export default function Home() {
     return (
-        <main className="relative bg-[#020617]">
+        <main className="relative h-screen flex flex-col pt-16 dark:bg-gradient-to-b from-[#0b0f14] via-[#070a0f] to-black">
             <Navbar />
 
-            <section className="relative z-10 pt-16">
+            <section className="flex-1 relative overflow-hidden">
                 <Hero />
             </section>
 
