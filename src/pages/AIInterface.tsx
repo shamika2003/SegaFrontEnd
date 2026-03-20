@@ -29,7 +29,8 @@ import rehypeSanitize from "rehype-sanitize";
 // @ts-ignore
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 // @ts-ignore
-import { dracula  } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
+import AnalyzerIndicator from "../components/ui/AnalyzerIndicator";
 
 type ChatMessage = {
   id: string;
@@ -86,6 +87,7 @@ export default function AIInterface() {
 
   const [hasScroll, setHasScroll] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isAnalyzer, setIsAnalyzer] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
@@ -250,7 +252,6 @@ export default function AIInterface() {
 
     ensureSocket();
 
-
     const files: { type: "image" | "file"; name: string; content: string }[] = [];
 
     for (const file of selectedFiles) {
@@ -349,6 +350,18 @@ export default function AIInterface() {
         }
 
         return;
+      }
+
+      if (msg.type === "analyzer") {
+        if (msg.status === "start") {
+          setIsSending(false);
+          setIsAnalyzer(true);
+        }
+
+        if (msg.status === "done") {
+          setIsSending(true);
+          setIsAnalyzer(false);
+        }
       }
 
 
@@ -704,7 +717,7 @@ export default function AIInterface() {
 
         <SyntaxHighlighter
           language={language}
-          style={dracula }
+          style={dracula}
           showLineNumbers
           wrapLongLines
           customStyle={{
@@ -1246,6 +1259,12 @@ export default function AIInterface() {
               {isSending && (
                 <div className="min-h-[40px]">
                   <TypingIndicator />
+                </div>
+              )}
+
+              {isAnalyzer && (
+                <div className="min-h-[40px]">
+                  <AnalyzerIndicator />
                 </div>
               )}
 
