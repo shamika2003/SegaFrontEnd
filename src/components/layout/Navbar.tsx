@@ -17,8 +17,6 @@ function classNames(...classes: (string | undefined | null | boolean)[]) {
   return classes.filter(Boolean).join(' ')
 }
 
-
-
 export default function Navbar() {
 
   const [isDark, setIsDark] = useState(false);

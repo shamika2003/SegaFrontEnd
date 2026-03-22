@@ -3,6 +3,7 @@ import {
   ArrowLeftFromLine,
   ArrowRightFromLine,
   AudioLines,
+  Ellipsis,
   Plus,
   Send,
   SquarePen,
@@ -62,8 +63,133 @@ type Preview = {
   url?: string;
 };
 
+type Chat = {
+  id: string;
+  title: string;
+};
+
+type SidebarChats = {
+  chatList: Chat[];
+  conversationId: string | null;
+  navigate: (path: string) => void;
+};
+
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function getTextFromReactNode(children: React.ReactNode): string {
+  if (typeof children === "string") return children;
+  if (Array.isArray(children)) return children.map(getTextFromReactNode).join("");
+  if (typeof children === "object" && children && "props" in children) {
+    return getTextFromReactNode((children as any).props.children);
+  }
+  return "";
+}
+
+function CodeBlock({
+  language,
+  codeText,
+}: {
+  language: string;
+  codeText: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(codeText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
+  };
+
+  return (
+    <div className="code-wrapper">
+
+      <div className="code-header ">
+        <span className="code-lang">{language}</span>
+
+        <button
+          onClick={handleCopy}
+          className="copy-btn"
+        >
+          {copied ? "Copied ✓" : "Copy"}
+        </button>
+      </div>
+
+      <SyntaxHighlighter
+        language={language}
+        style={dracula}
+        showLineNumbers
+        wrapLongLines
+        customStyle={{
+          margin: 0,
+          padding: "16px",
+          background: "transparent"
+        }}
+      >
+        {codeText}
+      </SyntaxHighlighter>
+
+    </div>
+  );
+}
+
+function SidebarChats({ chatList, conversationId, navigate }: SidebarChats) {
+
+  const [chatPopupOpen, setChatPopupOpen] = useState<string | null>(null);
+
+  return (
+    <div className="flex-1 overflow-y-auto px-2 space-y-1">
+      {chatList.map((chat) => (
+        <div key={chat.id} className="flex group relative">
+
+          <button
+            onClick={() => navigate(`/ai-interface/c/${chat.id}`)}
+            className={`relative w-full px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300
+            hover:bg-gray-300 dark:hover:bg-gray-900 transition-colors flex items-center gap-3
+            ${chat.id === conversationId ? "dark:bg-gray-900 bg-gray-300" : ""}`}
+          >
+            <span className="truncate block">{chat.title}</span>
+          </button>
+
+          <button
+            onClick={() =>
+              setChatPopupOpen(chatPopupOpen === chat.id ? null : chat.id)
+            }
+            className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-60
+            transition-opacity duration-200 p-1 rounded-3xl hover:bg-gray-300 dark:hover:bg-gray-800"
+          >
+            <Ellipsis className="h-5 w-5 shrink-0 dark:text-white" />
+          </button>
+
+          {chatPopupOpen === chat.id && (
+            <div className="absolute top-full right-6 mb-2 z-40 bg-white dark:bg-zinc-800 shadow-lg rounded-lg p-1 w-40">
+              <button className="text-sm w-full text-start p-2 hover:bg-red-100
+              dark:hover:bg-red-300 dark:hover:opacity-50 text-red-500 rounded-lg">
+                Upload image
+              </button>
+            </div>
+          )}
+
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function AIInterface() {
   const { conversationId: routeConversationId } = useParams();
@@ -93,7 +219,7 @@ export default function AIInterface() {
   const [isOpen, setIsOpen] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [emailValue, setEmailValue] = useState("");
-  const [popupOpen, setPopupOpen] = useState(false);
+  const [inputPopupOpen, setInputPopupOpen] = useState(false);
   const [fileName, setFileName] = useState('');
   const [imageName, setImageName] = useState('');
   const [previews, setPreviews] = useState<Preview[]>([]);
@@ -230,15 +356,6 @@ export default function AIInterface() {
       if (index >= fullTitle.length) clearInterval(interval);
     }, 10);
   };
-
-  function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
 
   const sendCurrentMessage = async () => {
     const el = textareaRef.current;
@@ -673,66 +790,6 @@ export default function AIInterface() {
     setHasScroll(overflow);
   }, [messages.length]); // only when messages are added
 
-  function getTextFromReactNode(children: React.ReactNode): string {
-    if (typeof children === "string") return children;
-    if (Array.isArray(children)) return children.map(getTextFromReactNode).join("");
-    if (typeof children === "object" && children && "props" in children) {
-      return getTextFromReactNode((children as any).props.children);
-    }
-    return "";
-  }
-
-  function CodeBlock({
-    language,
-    codeText,
-  }: {
-    language: string;
-    codeText: string;
-  }) {
-    const [copied, setCopied] = useState(false);
-
-    const handleCopy = async () => {
-      try {
-        await navigator.clipboard.writeText(codeText);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (err) {
-        console.error("Copy failed:", err);
-      }
-    };
-
-    return (
-      <div className="code-wrapper">
-
-        <div className="code-header ">
-          <span className="code-lang">{language}</span>
-
-          <button
-            onClick={handleCopy}
-            className="copy-btn"
-          >
-            {copied ? "Copied ✓" : "Copy"}
-          </button>
-        </div>
-
-        <SyntaxHighlighter
-          language={language}
-          style={dracula}
-          showLineNumbers
-          wrapLongLines
-          customStyle={{
-            margin: 0,
-            padding: "16px",
-            background: "transparent"
-          }}
-        >
-          {codeText}
-        </SyntaxHighlighter>
-
-      </div>
-    );
-  }
-
   // function CodeBlock({
   //   language,
   //   codeText,
@@ -808,7 +865,7 @@ export default function AIInterface() {
     setPreviews(prev => [...prev, ...newPreviews]);
 
     e.target.value = "";
-    setPopupOpen(false);
+    setInputPopupOpen(false);
   };
 
   // images
@@ -827,7 +884,7 @@ export default function AIInterface() {
     setPreviews(prev => [...prev, ...newPreviews]);
 
     e.target.value = "";
-    setPopupOpen(false);
+    setInputPopupOpen(false);
   };
 
   useEffect(() => {
@@ -1067,11 +1124,11 @@ export default function AIInterface() {
                 className="group relative w-full px-3 py-2 rounded-lg flex items-center gap-3 text-sm
                   animate-gradient opacity-80"
               >
-                <AudioLines />
+                <AudioLines className="h-5 w-5 shrink-0 dark:text-white" />
                 {/* Text (only when open) */}
                 {isOpen && <span className="truncate dark:text-white">Sega Voice</span>}
 
-                {/* Tooltip (only when closed) */}
+                {/* Tooltip */}
                 {!isOpen && (
                   <span
                     className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap
@@ -1088,30 +1145,13 @@ export default function AIInterface() {
             <hr className="my-3 mx-2 border-gray-400/50 dark:border-white/10" />
 
             {/* Past Chats */}
-            <div className="flex flex-col flex-1 overflow-hidden">
-              {isOpen && (
-                <span className="px-4 py-2 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Past Chats
-                </span>
-              )}
-
-              <div className="flex-1 overflow-y-auto px-2 space-y-1">
-                {chatList.map((chat, index) => (
-                  <button
-                    key={index}
-                    onClick={() => navigate(`/ai-interface/c/${chat.id}`)}
-                    className={`group relative w-full px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300
-                    hover:bg-gray-300 dark:hover:bg-gray-900 transition-colors flex items-center gap-3
-                    ${chat.id == conversationId ? "dark:bg-gray-900 bg-gray-300" : ""}`}
-                  >
-                    {/* Text */}
-                    {isOpen && (
-                      <span className="truncate block">{chat.title}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {isOpen && (
+              <SidebarChats
+                chatList={chatList}
+                conversationId={conversationId}
+                navigate={navigate}
+              />
+            )}
           </div>
 
           <div className="h-full w-full min-w-0 relative border border-white/10 flex justify-center">
@@ -1290,16 +1330,16 @@ export default function AIInterface() {
 
               <div className="relative inline-block">
                 <button
-                  onClick={() => setPopupOpen(!popupOpen)}
+                  onClick={() => setInputPopupOpen(!inputPopupOpen)}
                   className="dark:text-white px-2 py-2 rounded-full transition bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 disabled:opacity-50">
                   <Plus
-                    className={`transition-transform duration-200 ${popupOpen ? "rotate-180" : "rotate-0"
+                    className={`transition-transform duration-200 ${inputPopupOpen ? "rotate-180" : "rotate-0"
                       }`}
                   />
                 </button>
 
                 {/* Popup */}
-                {popupOpen && (
+                {inputPopupOpen && (
                   <div className="absolute bottom-full mb-2 -translate-x-1/2 
                         bg-white dark:bg-zinc-800/40
                         shadow-lg rounded-lg p-2 w-40">
