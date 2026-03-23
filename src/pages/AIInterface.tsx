@@ -16,7 +16,7 @@ import remarkGfm from "remark-gfm";
 import TypingIndicator from "../components/ui/TypingIndicator";
 import { FcGoogle } from "react-icons/fc";
 import { useGoogleLogin } from "@react-oauth/google";
-import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
+import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { useNavigate, useParams } from "react-router-dom";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
@@ -32,6 +32,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 // @ts-ignore
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
 import AnalyzerIndicator from "../components/ui/AnalyzerIndicator";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
 type ChatMessage = {
   id: string;
@@ -72,6 +73,7 @@ type SidebarChats = {
   chatList: Chat[];
   conversationId: string | null;
   navigate: (path: string) => void;
+  deleteChat: (chatId: string) => void;
 };
 
 
@@ -148,46 +150,110 @@ function CodeBlock({
   );
 }
 
-function SidebarChats({ chatList, conversationId, navigate }: SidebarChats) {
+function SidebarChats({ chatList, conversationId, navigate, deleteChat }: SidebarChats) {
 
   const [chatPopupOpen, setChatPopupOpen] = useState<string | null>(null);
+
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="flex-1 overflow-y-auto px-2 space-y-1">
       {chatList.map((chat) => (
-        <div key={chat.id} className="flex group relative">
-
+        <div
+          key={chat.id}
+          className={`group relative flex items-center rounded-md hover:bg-gray-300 dark:hover:bg-gray-900
+                      ${chat.id === conversationId ? "bg-gray-300 dark:bg-gray-900" : ""}`}
+        >
+          {/* Chat button */}
           <button
             onClick={() => navigate(`/ai-interface/c/${chat.id}`)}
-            className={`relative w-full px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300
-            hover:bg-gray-300 dark:hover:bg-gray-900 transition-colors flex items-center gap-3
-            ${chat.id === conversationId ? "dark:bg-gray-900 bg-gray-300" : ""}`}
+            className="flex-1 min-w-0 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 flex items-center transition-all"
           >
-            <span className="truncate block">{chat.title}</span>
+            <span className="truncate">{chat.title}</span>
           </button>
 
-          <button
-            onClick={() =>
-              setChatPopupOpen(chatPopupOpen === chat.id ? null : chat.id)
-            }
-            className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-60
-            transition-opacity duration-200 p-1 rounded-3xl hover:bg-gray-300 dark:hover:bg-gray-800"
+          {/* Ellipsis container */}
+          <div
+            className="w-0 group-hover:w-8 overflow-hidden transition-all duration-200 flex justify-center"
           >
-            <Ellipsis className="h-5 w-5 shrink-0 dark:text-white" />
-          </button>
+            <button
+              onClick={() =>
+                setChatPopupOpen(chatPopupOpen === chat.id ? null : chat.id)
+              }
+              className="p-1 rounded-full opacity-60 hover:bg-gray-300 dark:hover:bg-gray-800"
+            >
+              <Ellipsis className="h-5 w-5 dark:text-white" />
+            </button>
+          </div>
 
           {chatPopupOpen === chat.id && (
             <div className="absolute top-full right-6 mb-2 z-40 bg-white dark:bg-zinc-800 shadow-lg rounded-lg p-1 w-40">
-              <button className="text-sm w-full text-start p-2 hover:bg-red-100
-              dark:hover:bg-red-300 dark:hover:opacity-50 text-red-500 rounded-lg">
-                Upload image
+              <button
+                onClick={() => setOpen(true)}
+                className="text-sm w-full text-start p-2 hover:bg-red-100
+                  dark:hover:bg-red-300 dark:hover:opacity-50 text-red-500 dark:hover:text-white rounded-lg">
+                Delete this chat
               </button>
-            </div>
-          )}
 
-        </div>
+
+              <Dialog open={open} onClose={setOpen} className="relative z-10">
+                <DialogBackdrop
+                  transition
+                  className="fixed inset-0 bg-gray-500/75 transition-opacity data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in"
+                />
+
+                <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
+                  <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                    <DialogPanel
+                      transition
+                      className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-lg data-closed:sm:translate-y-0 data-closed:sm:scale-95"
+                    >
+                      <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div className="sm:flex sm:items-start">
+                          <div className="mx-auto flex size-12 shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:size-10">
+                            <ExclamationTriangleIcon aria-hidden="true" className="size-6 text-red-600" />
+                          </div>
+                          <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <DialogTitle as="h3" className="text-base font-semibold text-gray-900">
+                              Delete chat
+                            </DialogTitle>
+                            <div className="mt-2">
+                              <p className="text-sm text-gray-500">
+                                Are you sure you want to delete <b>{chat.title}</b>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            deleteChat(chat.id)}
+                          className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-red-500 sm:ml-3 sm:w-auto"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          type="button"
+                          data-autofocus
+                          onClick={() => setOpen(false)}
+                          className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs inset-ring inset-ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </DialogPanel>
+                  </div>
+                </div>
+              </Dialog>
+            </div >
+          )
+          }
+
+        </div >
       ))}
-    </div>
+    </div >
   );
 }
 
@@ -528,8 +594,6 @@ export default function AIInterface() {
 
     currentTokenRef.current = token;
   };
-
-
 
 
   useEffect(() => {
@@ -894,6 +958,41 @@ export default function AIInterface() {
     };
   }, [previews]);
 
+  const deleteChat = async (
+    conversation_id: string
+  ) => {
+    if (!authChecked || !accessToken) return;
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/delete_conversations/${conversation_id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!res.ok) {
+        console.log("error")
+        return;
+      }
+
+      setChatList((prev) => prev.filter((chat) => chat.id !== conversation_id));
+
+      if (conversationId === conversation_id) {
+        setMessages([]);
+        navigate("/ai-interface");
+      }
+
+    } catch (e) {
+      console.error("Chat list fetch failed", e);
+    }
+  };
+
   return (
     <main className="relative h-screen flex flex-col pt-16 dark:bg-gradient-to-b from-[#0b0f14] via-[#070a0f] to-black">
 
@@ -1150,6 +1249,7 @@ export default function AIInterface() {
                 chatList={chatList}
                 conversationId={conversationId}
                 navigate={navigate}
+                deleteChat={deleteChat}
               />
             )}
           </div>
