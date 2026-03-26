@@ -33,6 +33,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
 import AnalyzerIndicator from "../components/ui/AnalyzerIndicator";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import HoverFullScreenImage from "../components/ui/HoverFullScreenImage";
 
 type ChatMessage = {
   id: string;
@@ -546,7 +547,6 @@ export default function AIInterface() {
           setIsAnalyzer(false);
         }
       }
-
 
       // Streaming token
       if (msg.type === "token") {
@@ -1328,13 +1328,15 @@ export default function AIInterface() {
                           rehypePlugins={[rehypeRaw, rehypeSanitize]}
                           components={{
                             img({ src, alt }) {
+                              if (!src) return null;
+
                               return (
-                                <img
-                                  src={src}
-                                  alt={alt || "image"}
-                                  loading="lazy"
-                                  className="rounded-lg my-3 max-w-full"
-                                />
+                                <div className="p-4">
+                                  <HoverFullScreenImage
+                                    src={src}
+                                    alt={alt || "image"}
+                                  />
+                                </div>
                               );
                             },
 
@@ -1539,6 +1541,6 @@ export default function AIInterface() {
           </div>
         </div>
       </section>
-    </main>
+    </main >
   );
 }
