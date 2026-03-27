@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { ZoomIn, X } from "lucide-react";
+import { X, Download, ZoomIn } from "lucide-react";
 
 type Props = {
   src: string;
@@ -10,23 +10,44 @@ type Props = {
 export default function HoverFullScreenImage({ src, alt }: Props) {
   const [open, setOpen] = useState(false);
 
+  const handleDownload = () => {
+    const link = document.createElement("a");
+    link.href = src;
+    link.download = alt || "image";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <>
       {/* Thumbnail */}
-      <div
-        onClick={() => setOpen(true)}
-        className="group relative cursor-zoom-in overflow-hidden rounded-xl my-3 w-fit"
-      >
+      <span className="group relative inline-block rounded-xl my-3 w-fit">
+
         <img
           src={src}
           alt={alt}
           className="rounded-xl max-w-full transition group-hover:scale-105"
         />
 
-        <div className="absolute inset-0 flex bg-black/30 opacity-0 group-hover:opacity-100 transition">
-          <ZoomIn className="text-white w-8 h-8" />
+        {/* Buttons (hidden until hover) */}
+        <div className="absolute top-0 -right-12 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition">
+
+          <button
+            onClick={() => setOpen(true)}
+            className="p-2 dark:hover:bg-black/10 hover:bg-black/10 rounded-lg cursor-zoom-in">
+            <ZoomIn className="text-black/60 dark:text-white/80 w-5 h-5" />
+          </button>
+
+          <button
+            onClick={handleDownload}
+            className="p-2 dark:hover:bg-black/10 hover:bg-black/10 rounded-lg">
+            <Download className="text-black/60 dark:text-white/80 w-5 h-5" />
+          </button>
+
         </div>
-      </div>
+
+      </span>
 
       {/* FULLSCREEN VIA PORTAL */}
       {open &&

@@ -1331,12 +1331,10 @@ export default function AIInterface() {
                               if (!src) return null;
 
                               return (
-                                <div className="p-4">
                                   <HoverFullScreenImage
                                     src={src}
                                     alt={alt || "image"}
                                   />
-                                </div>
                               );
                             },
 
